@@ -38,3 +38,11 @@ out/
 
 ### SQLite ###
 *.db
+
+### Real bank exports (never commit) ###
+samples/
+CSVData*.csv
+*.csv
+!src/test/resources/**/*.csv
+
+goal.md
