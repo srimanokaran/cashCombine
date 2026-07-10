@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: cashCombine
+  datasource:
+    url: "jdbc:sqlite:cashcombine.db"
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    hibernate:
+      ddl-auto: update
