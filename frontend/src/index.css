@@ -1,0 +1,71 @@
+:root {
+  color: #1c241c;
+  background:
+    radial-gradient(circle at top left, rgba(62, 110, 74, 0.12), transparent 40%),
+    linear-gradient(180deg, #f4f7f3 0%, #e8eee6 100%);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-synthesis: none;
+  line-height: 1.5;
+  font-weight: 400;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+a {
+  color: #24573a;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid #2f5d40;
+  background: #2f5d40;
+  color: #f7faf6;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+}
+
+button.danger {
+  background: transparent;
+  color: #8a2f2f;
+  border-color: #c98989;
+}
+
+button:disabled,
+select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+input,
+select {
+  border: 1px solid #b7c4b7;
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  background: #fff;
+  color: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
