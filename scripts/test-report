@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Prints a terminal summary of Gradle test XML results as tables, grouped by suite.
+# Usage:
+#   ./scripts/test-report
+#   ./scripts/test-report unitTest
+#   ./scripts/test-report integrationTest
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+TASK_FILTER="${1:-}"
+RESULTS_ROOT="build/test-results"
+
+if [[ -n "$TASK_FILTER" ]]; then
+	RESULTS_ROOT="build/test-results/$TASK_FILTER"
+fi
+
+if [[ ! -d "$RESULTS_ROOT" ]]; then
+	echo "No test results found at $RESULTS_ROOT"
+	echo "Run tests first, e.g. make testUnit / make testIntegration"
+	exit 1
+fi
+
+XML_FILES=()
+while IFS= read -r -d '' xml; do
+	XML_FILES+=("$xml")
+done < <(find "$RESULTS_ROOT" -name 'TEST-*.xml' -print0 | sort -z)
+
+if [[ ${#XML_FILES[@]} -eq 0 ]]; then
+	echo "No TEST-*.xml files found under $RESULTS_ROOT"
+	exit 1
+fi
+
+export RESULTS_ROOT
+python3 - "${XML_FILES[@]}" <<'PY'
+import os
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+xml_files = sys.argv[1:]
+results_root = os.environ.get("RESULTS_ROOT", "build/test-results")
+
+def short_suite(classname: str) -> str:
+    parts = classname.split(".")
+    return parts[-1] if parts else classname
+
+def print_table(headers, table_rows, aligns=None):
+    str_rows = [[str(c) for c in row] for row in table_rows]
+    widths = [len(h) for h in headers]
+    for row in str_rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def fmt_row(row):
+        cells = []
+        for i, cell in enumerate(row):
+            width = widths[i]
+            align = (aligns or ["L"] * len(headers))[i]
+            cells.append(cell.rjust(width) if align == "R" else cell.ljust(width))
+        return " | ".join(cells)
+
+    sep = "-+-".join("-" * w for w in widths)
+    print(fmt_row(headers))
+    print(sep)
+    for row in str_rows:
+        print(fmt_row(row))
+
+total_tests = total_failures = total_errors = total_skipped = 0
+total_time = 0.0
+suite_summaries = []
+# suite_short -> list of (status, test_name, time)
+tests_by_suite = []
+
+for xml_path in xml_files:
+    root = ET.parse(xml_path).getroot()
+    suite_name = Path(xml_path).stem
+    if suite_name.startswith("TEST-"):
+        suite_name = suite_name[5:]
+    suite_short = short_suite(suite_name)
+
+    tests = int(root.attrib.get("tests", 0))
+    failures = int(root.attrib.get("failures", 0))
+    errors = int(root.attrib.get("errors", 0))
+    skipped = int(root.attrib.get("skipped", 0))
+    time = float(root.attrib.get("time", 0) or 0)
+    passed = tests - failures - errors - skipped
+    status = "FAIL" if failures or errors else "PASS"
+
+    total_tests += tests
+    total_failures += failures
+    total_errors += errors
+    total_skipped += skipped
+    total_time += time
+
+    suite_summaries.append((status, suite_short, tests, passed, failures + errors, skipped, time))
+
+    case_rows = []
+    for case in root.findall("testcase"):
+        name = case.attrib.get("name", "?")
+        case_time = float(case.attrib.get("time", 0) or 0)
+        if case.find("failure") is not None or case.find("error") is not None:
+            case_status = "FAIL"
+        elif case.find("skipped") is not None:
+            case_status = "SKIP"
+        else:
+            case_status = "PASS"
+        case_rows.append((case_status, name, case_time))
+    tests_by_suite.append((status, suite_short, case_rows))
+
+print("=== Test report ===")
+print(f"Source: {results_root}")
+print()
+
+print("Suites")
+print_table(
+    ["Status", "Suite", "Tests", "Passed", "Failed", "Skipped", "Time(s)"],
+    [
+        (s, suite, str(t), str(p), str(f), str(sk), f"{tm:.3f}")
+        for s, suite, t, p, f, sk, tm in suite_summaries
+    ],
+    aligns=["L", "L", "R", "R", "R", "R", "R"],
+)
+
+print()
+print("Tests (grouped by suite)")
+for suite_status, suite_short, case_rows in tests_by_suite:
+    print()
+    print(f"[{suite_status}] {suite_short}")
+    if not case_rows:
+        print("  (no tests)")
+        continue
+    print_table(
+        ["Status", "Test", "Time(s)"],
+        [(status, name, f"{tm:.3f}") for status, name, tm in case_rows],
+        aligns=["L", "L", "R"],
+    )
+
+passed = total_tests - total_failures - total_errors - total_skipped
+print()
+print("=== Summary ===")
+print_table(
+    ["Total", "Passed", "Failed", "Skipped", "Time(s)"],
+    [[str(total_tests), str(passed), str(total_failures + total_errors), str(total_skipped), f"{total_time:.3f}"]],
+    aligns=["R", "R", "R", "R", "R"],
+)
+print()
+print("HTML: build/reports/tests/*/index.html")
+
+sys.exit(1 if (total_failures + total_errors) > 0 else 0)
+PY
