@@ -1,9 +1,22 @@
 :root {
-  color: #1c241c;
-  background:
-    radial-gradient(circle at top left, rgba(62, 110, 74, 0.12), transparent 40%),
-    linear-gradient(180deg, #f4f7f3 0%, #e8eee6 100%);
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --navy: #e7ecf3;
+  --navy-muted: #9aa8bc;
+  --bg: #0a0f1a;
+  --surface: #121a2b;
+  --surface-raised: #182235;
+  --border: #243044;
+  --border-strong: #314057;
+  --accent: #7a73ff;
+  --accent-hover: #9590ff;
+  --accent-soft: rgba(122, 115, 255, 0.16);
+  --danger: #ff5c7a;
+  --danger-soft: rgba(255, 92, 122, 0.14);
+  --success: #2dd4bf;
+  --shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.28);
+
+  color: var(--navy);
+  background: var(--bg);
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
   font-synthesis: none;
   line-height: 1.5;
   font-weight: 400;
@@ -19,14 +32,19 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(122, 115, 255, 0.18), transparent 55%),
+    var(--bg);
 }
 
 a {
-  color: #24573a;
+  color: var(--accent);
   text-decoration: none;
+  font-weight: 600;
 }
 
 a:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -38,32 +56,56 @@ select {
 
 button {
   cursor: pointer;
-  border: 1px solid #2f5d40;
-  background: #2f5d40;
-  color: #f7faf6;
-  border-radius: 6px;
-  padding: 0.45rem 0.85rem;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.65rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: background 140ms ease;
 }
 
-button.danger {
-  background: transparent;
-  color: #8a2f2f;
-  border-color: #c98989;
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
 button:disabled,
 select:disabled {
-  opacity: 0.7;
+  opacity: 0.4;
   cursor: not-allowed;
+}
+
+button.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(255, 92, 122, 0.35);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
 }
 
 input,
 select {
-  border: 1px solid #b7c4b7;
-  border-radius: 6px;
-  padding: 0.45rem 0.7rem;
-  background: #fff;
-  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-raised);
+  color: var(--navy);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+option {
+  background: var(--surface);
+  color: var(--navy);
 }
 
 #root {

@@ -37,6 +37,20 @@ export interface ImportResult {
   rejected: number
 }
 
+export interface CategorySpend {
+  categoryId: string
+  categoryName: string
+  amount: number
+  percent: number
+  transactionCount: number
+}
+
+export interface ExpenseDashboard {
+  totalExpenses: number
+  expenseTransactionCount: number
+  categories: CategorySpend[]
+}
+
 export interface ApiError {
   message: string
 }

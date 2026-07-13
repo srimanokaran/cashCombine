@@ -1,4 +1,12 @@
-import type { Account, AccountType, Category, ImportResult, Rule, Transaction } from './types'
+import type {
+  Account,
+  AccountType,
+  Category,
+  ExpenseDashboard,
+  ImportResult,
+  Rule,
+  Transaction,
+} from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init)
@@ -76,4 +84,5 @@ export const api = {
     }),
   deleteRule: (id: string) =>
     request<void>(`/api/rules/${id}`, { method: 'DELETE' }),
+  getExpenseDashboard: () => request<ExpenseDashboard>('/api/dashboard/expenses'),
 }

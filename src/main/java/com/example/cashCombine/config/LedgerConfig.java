@@ -10,6 +10,7 @@ import com.example.cashCombine.ledger.categorisation.CategoryService;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
 import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
+import com.example.cashCombine.ledger.dashboard.DashboardService;
 import com.example.cashCombine.ledger.imports.CommBankCsvParser;
 import com.example.cashCombine.ledger.imports.ImportService;
 import com.example.cashCombine.ledger.imports.TransactionCsvParser;
@@ -50,6 +51,12 @@ public class LedgerConfig {
 	TransactionService transactionService(
 			TransactionRepository transactionRepository, CategoryRepository categoryRepository) {
 		return new TransactionService(transactionRepository, categoryRepository);
+	}
+
+	@Bean
+	DashboardService dashboardService(
+			TransactionRepository transactionRepository, CategoryRepository categoryRepository) {
+		return new DashboardService(transactionRepository, categoryRepository);
 	}
 
 	@Bean

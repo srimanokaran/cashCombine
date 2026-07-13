@@ -15,6 +15,8 @@ public interface TransactionRepository {
 
 	List<Transaction> findByCategoryId(CategoryId categoryId);
 
+	List<Transaction> findAll();
+
 	boolean existsByAccountAndFingerprint(AccountId accountId, TransactionFingerprint fingerprint);
 
 	void deleteByAccountId(AccountId accountId);

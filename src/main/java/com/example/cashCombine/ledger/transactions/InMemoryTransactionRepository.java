@@ -44,6 +44,11 @@ public class InMemoryTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public List<Transaction> findAll() {
+		return List.copyOf(transactions.values());
+	}
+
+	@Override
 	public boolean existsByAccountAndFingerprint(AccountId accountId, TransactionFingerprint fingerprint) {
 		return fingerprints.contains(new AccountFingerprintKey(accountId, fingerprint));
 	}

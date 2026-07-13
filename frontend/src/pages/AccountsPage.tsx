@@ -11,6 +11,7 @@ export function AccountsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [dragging, setDragging] = useState(false)
 
   const selected = accounts.find((account) => account.id === accountId)
   const importSupported =
@@ -60,37 +61,42 @@ export function AccountsPage() {
   return (
     <section className="page">
       <h1>Import</h1>
-      <p className="lede">Pick an account, choose a CSV, then upload.</p>
+      <p className="lede">Choose an account, select a CSV, then upload.</p>
 
       {error && <p className="error">{error}</p>}
       {loading ? (
-        <p>Loading…</p>
+        <p className="lede">Loading…</p>
       ) : (
         <form className="import-form" onSubmit={onUpload}>
           <div className="panel">
             <h2>Account</h2>
-            <label className="field">
-              <span>Bank / card</span>
-              <select
-                value={accountId}
-                onChange={(e) => {
-                  setAccountId(e.target.value)
-                  setImportResult(null)
-                }}
-                required
-              >
-                <option value="" disabled>
-                  Select account…
-                </option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="account-picker" role="radiogroup" aria-label="Bank or card">
+              {accounts.map((account) => (
+                <button
+                  key={account.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={accountId === account.id}
+                  className={`account-option${accountId === account.id ? ' selected' : ''}`}
+                  data-type={account.type}
+                  onClick={() => {
+                    setAccountId(account.id)
+                    setImportResult(null)
+                  }}
+                >
+                  <span>{account.name}</span>
+                  <span className="option-meta">
+                    {IMPORTABLE_ACCOUNT_TYPES.includes(account.type)
+                      ? account.hasImports
+                        ? 'Ready · has imports'
+                        : 'Ready to import'
+                      : 'Coming soon'}
+                  </span>
+                </button>
+              ))}
+            </div>
             {selected && !importSupported && (
-              <p className="muted">
+              <p className="muted" style={{ marginTop: '0.85rem', marginBottom: 0 }}>
                 CSV import for {selected.name} is not wired up yet — CommBank works today.
               </p>
             )}
@@ -98,10 +104,31 @@ export function AccountsPage() {
 
           <div className="panel">
             <h2>CSV file</h2>
-            <label className="field">
-              <span>File</span>
+            <label
+              className={`file-drop${file ? ' has-file' : ''}${dragging ? ' dragging' : ''}`}
+              onDragEnter={(e) => {
+                e.preventDefault()
+                setDragging(true)
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragging(true)
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault()
+                setDragging(false)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragging(false)
+                const dropped = e.dataTransfer.files?.[0] ?? null
+                setFile(dropped)
+                setImportResult(null)
+              }}
+            >
               <input
                 key={file?.name ?? 'no-file'}
+                className="file-input"
                 type="file"
                 accept=".csv,text/csv"
                 onChange={(e) => {
@@ -109,8 +136,49 @@ export function AccountsPage() {
                   setImportResult(null)
                 }}
               />
+              <span className="file-drop-icon" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 16V4m0 0 4 4m-4-4L8 8"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              {file ? (
+                <>
+                  <span className="file-drop-title">{file.name}</span>
+                  <span className="file-drop-hint">Click to replace · CSV ready</span>
+                </>
+              ) : (
+                <>
+                  <span className="file-drop-title">Drop your CSV here</span>
+                  <span className="file-drop-hint">
+                    or <span className="file-browse">browse files</span> · .csv only
+                  </span>
+                </>
+              )}
             </label>
-            {file && <p className="meta">Selected: {file.name}</p>}
+            {file && (
+              <button
+                type="button"
+                className="file-clear"
+                onClick={() => {
+                  setFile(null)
+                  setImportResult(null)
+                }}
+              >
+                Clear file
+              </button>
+            )}
           </div>
 
           <button type="submit" disabled={!canUpload}>
@@ -120,20 +188,20 @@ export function AccountsPage() {
       )}
 
       {importResult && selected && (
-        <div className="panel">
+        <div className="panel result-panel" style={{ marginTop: '1rem' }}>
           <p className="import-result">
             Accepted {importResult.accepted} · Duplicate {importResult.duplicate} · Rejected{' '}
             {importResult.rejected}
           </p>
-          <p>
-            <Link to={`/accounts/${selected.id}`}>View {selected.name} transactions</Link>
+          <p style={{ margin: 0 }}>
+            <Link to={`/accounts/${selected.id}`}>View {selected.name} transactions →</Link>
           </p>
         </div>
       )}
 
       {!loading && accounts.length > 0 && (
-        <>
-          <h2>Accounts</h2>
+        <div className="account-links">
+          <h2>Jump to ledger</h2>
           <ul className="list compact">
             {accounts.map((account) => (
               <li key={account.id}>
@@ -146,7 +214,7 @@ export function AccountsPage() {
               </li>
             ))}
           </ul>
-        </>
+        </div>
       )}
     </section>
   )
