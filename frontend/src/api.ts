@@ -54,6 +54,8 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     }),
+  deleteCategory: (id: string) =>
+    request<void>(`/api/categories/${id}`, { method: 'DELETE' }),
   listRules: () => request<Rule[]>('/api/rules'),
   createRule: (pattern: string, categoryId: string) =>
     request<Rule>('/api/rules', {

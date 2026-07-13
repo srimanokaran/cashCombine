@@ -42,6 +42,11 @@ public class JpaCategoryRepository implements CategoryRepository {
 		return jpaRepository.findAll().stream().map(this::toDomain).toList();
 	}
 
+	@Override
+	public void deleteById(CategoryId id) {
+		jpaRepository.deleteById(id.value());
+	}
+
 	private Category toDomain(CategoryJpaEntity entity) {
 		return Category.reconstitute(new CategoryId(entity.getId()), entity.getName());
 	}

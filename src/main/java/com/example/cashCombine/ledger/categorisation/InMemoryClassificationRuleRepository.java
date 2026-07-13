@@ -31,4 +31,9 @@ public class InMemoryClassificationRuleRepository implements ClassificationRuleR
 		rules.remove(id);
 	}
 
+	@Override
+	public void deleteByCategoryId(CategoryId categoryId) {
+		rules.entrySet().removeIf(entry -> entry.getValue().categoryId().equals(categoryId));
+	}
+
 }

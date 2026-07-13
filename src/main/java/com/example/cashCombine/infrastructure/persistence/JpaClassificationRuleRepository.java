@@ -44,6 +44,11 @@ public class JpaClassificationRuleRepository implements ClassificationRuleReposi
 		jpaRepository.deleteById(id.value());
 	}
 
+	@Override
+	public void deleteByCategoryId(CategoryId categoryId) {
+		jpaRepository.deleteByCategoryId(categoryId.value());
+	}
+
 	private ClassificationRule toDomain(ClassificationRuleJpaEntity entity) {
 		return ClassificationRule.reconstitute(
 				new ClassificationRuleId(entity.getId()),

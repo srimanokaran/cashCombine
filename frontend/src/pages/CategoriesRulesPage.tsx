@@ -88,6 +88,26 @@ export function CategoriesRulesPage() {
     }
   }
 
+  async function onDeleteCategory(category: Category) {
+    if (category.name === UNCATEGORISED) {
+      return
+    }
+    if (
+      !window.confirm(
+        `Delete category “${category.name}”? Rules for it will be removed and its transactions become Uncategorised.`,
+      )
+    ) {
+      return
+    }
+    setError(null)
+    try {
+      await api.deleteCategory(category.id)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete category')
+    }
+  }
+
   function categoryLabel(categoryId: string) {
     return categories.find((c) => c.id === categoryId)?.name ?? categoryId
   }
@@ -117,6 +137,15 @@ export function CategoriesRulesPage() {
             {categories.map((category) => (
               <li key={category.id}>
                 <span>{category.name}</span>
+                {category.name !== UNCATEGORISED && (
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => void onDeleteCategory(category)}
+                  >
+                    Delete
+                  </button>
+                )}
               </li>
             ))}
           </ul>

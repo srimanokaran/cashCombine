@@ -13,4 +13,6 @@ public interface ClassificationRuleRepository {
 
 	void deleteById(ClassificationRuleId id);
 
+	void deleteByCategoryId(CategoryId categoryId);
+
 }

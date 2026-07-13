@@ -33,4 +33,9 @@ public class InMemoryCategoryRepository implements CategoryRepository {
 		return new ArrayList<>(categories.values());
 	}
 
+	@Override
+	public void deleteById(CategoryId id) {
+		categories.remove(id);
+	}
+
 }

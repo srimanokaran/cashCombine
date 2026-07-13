@@ -1,6 +1,7 @@
 package com.example.cashCombine.ledger.transactions;
 
 import com.example.cashCombine.ledger.accounts.AccountId;
+import com.example.cashCombine.ledger.categorisation.CategoryId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,6 +33,13 @@ public class InMemoryTransactionRepository implements TransactionRepository {
 	public List<Transaction> findByAccountId(AccountId accountId) {
 		return transactions.values().stream()
 				.filter(transaction -> transaction.accountId().equals(accountId))
+				.toList();
+	}
+
+	@Override
+	public List<Transaction> findByCategoryId(CategoryId categoryId) {
+		return transactions.values().stream()
+				.filter(transaction -> transaction.categoryId().equals(categoryId))
 				.toList();
 	}
 

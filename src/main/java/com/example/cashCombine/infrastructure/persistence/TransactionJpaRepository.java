@@ -13,6 +13,8 @@ public interface TransactionJpaRepository extends JpaRepository<TransactionJpaEn
 
 	List<TransactionJpaEntity> findByAccountId(UUID accountId);
 
+	List<TransactionJpaEntity> findByCategoryId(UUID categoryId);
+
 	boolean existsByAccountIdAndDateAndAmountAndDescriptionAndBalance(
 			UUID accountId, LocalDate date, BigDecimal amount, String description, BigDecimal balance);
 

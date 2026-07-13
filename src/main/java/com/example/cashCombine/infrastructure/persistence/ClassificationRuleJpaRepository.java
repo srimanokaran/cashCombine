@@ -12,4 +12,6 @@ public interface ClassificationRuleJpaRepository extends JpaRepository<Classific
 	@Query("select coalesce(max(r.createdOrder), 0) from ClassificationRuleJpaEntity r")
 	long findMaxCreatedOrder();
 
+	void deleteByCategoryId(UUID categoryId);
+
 }

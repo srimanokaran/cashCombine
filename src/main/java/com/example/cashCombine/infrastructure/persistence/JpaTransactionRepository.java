@@ -50,6 +50,12 @@ public class JpaTransactionRepository implements TransactionRepository {
 
 	@Override
 	@Transactional(readOnly = true)
+	public List<Transaction> findByCategoryId(CategoryId categoryId) {
+		return jpaRepository.findByCategoryId(categoryId.value()).stream().map(this::toDomain).toList();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
 	public boolean existsByAccountAndFingerprint(AccountId accountId, TransactionFingerprint fingerprint) {
 		return jpaRepository.existsByAccountIdAndDateAndAmountAndDescriptionAndBalance(
 				accountId.value(),

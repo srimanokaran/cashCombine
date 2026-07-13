@@ -33,8 +33,11 @@ public class LedgerConfig {
 	}
 
 	@Bean
-	CategoryService categoryService(CategoryRepository categoryRepository) {
-		return new CategoryService(categoryRepository);
+	CategoryService categoryService(
+			CategoryRepository categoryRepository,
+			ClassificationRuleRepository ruleRepository,
+			TransactionRepository transactionRepository) {
+		return new CategoryService(categoryRepository, ruleRepository, transactionRepository);
 	}
 
 	@Bean

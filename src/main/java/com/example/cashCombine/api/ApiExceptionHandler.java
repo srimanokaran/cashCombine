@@ -3,6 +3,7 @@ package com.example.cashCombine.api;
 import com.example.cashCombine.ledger.accounts.AccountNotFoundException;
 import com.example.cashCombine.ledger.categorisation.CategoryNotFoundException;
 import com.example.cashCombine.ledger.categorisation.DuplicateCategoryNameException;
+import com.example.cashCombine.ledger.categorisation.ProtectedCategoryException;
 import com.example.cashCombine.ledger.categorisation.RuleNotFoundException;
 import com.example.cashCombine.ledger.imports.InvalidCsvFormatException;
 import com.example.cashCombine.ledger.transactions.TransactionNotFoundException;
@@ -30,8 +31,8 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
 	}
 
-	@ExceptionHandler(DuplicateCategoryNameException.class)
-	public ResponseEntity<ErrorResponse> conflict(DuplicateCategoryNameException ex) {
+	@ExceptionHandler({DuplicateCategoryNameException.class, ProtectedCategoryException.class})
+	public ResponseEntity<ErrorResponse> conflict(RuntimeException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(ex.getMessage()));
 	}
 

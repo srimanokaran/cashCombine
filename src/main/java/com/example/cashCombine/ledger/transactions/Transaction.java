@@ -73,6 +73,14 @@ public class Transaction {
 		this.categoryAssignmentSource = CategoryAssignmentSource.MANUAL;
 	}
 
+	/** Moves the transaction to another category without treating it as a manual override. */
+	public void reassignCategory(CategoryId newCategoryId) {
+		if (newCategoryId == null) {
+			throw new IllegalArgumentException("Category id is required");
+		}
+		this.categoryId = newCategoryId;
+	}
+
 	public TransactionId id() {
 		return id;
 	}
