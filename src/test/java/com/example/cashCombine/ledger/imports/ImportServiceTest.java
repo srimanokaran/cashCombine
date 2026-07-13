@@ -9,11 +9,15 @@ import com.example.cashCombine.ledger.accounts.AccountNotFoundException;
 import com.example.cashCombine.ledger.accounts.AccountService;
 import com.example.cashCombine.ledger.accounts.AccountType;
 import com.example.cashCombine.ledger.accounts.InMemoryAccountRepository;
+import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository;
+import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.EnumMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +32,14 @@ class ImportServiceTest {
 		var accountRepository = new InMemoryAccountRepository();
 		transactionRepository = new InMemoryTransactionRepository();
 		accountService = new AccountService(accountRepository, transactionRepository);
-		importService = new ImportService(accountRepository, transactionRepository, new CommBankCsvParser());
+
+		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
+		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());
+
+		Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies = new EnumMap<>(AccountType.class);
+		fingerprintStrategies.put(AccountType.COMMBANK, new CommBankFingerprintStrategy());
+
+		importService = new ImportService(accountRepository, transactionRepository, parsers, fingerprintStrategies);
 	}
 
 	@Test

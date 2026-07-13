@@ -12,7 +12,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CommBankCsvParser {
+public class CommBankCsvParser implements TransactionCsvParser{
 
 	private static final int EXPECTED_COLUMN_COUNT = 4;
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -28,10 +28,13 @@ public class CommBankCsvParser {
 	 * Output shape ({@link ParsedTransactionRow}):
 	 * {@code date=2026-07-10, amount=-45.00, description="WOOLWORTHS...", balance=2455.00}
 	 */
-	public List<ParsedTransactionRow> parse(InputStream input) throws IOException {
+	public List<ParsedTransactionRow> parse(InputStream input) {
 		try (var reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
 			return parse(reader);
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to parse CSV", e);
 		}
+
 	}
 
 	/**

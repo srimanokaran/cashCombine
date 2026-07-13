@@ -5,7 +5,6 @@ import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.accounts.AccountNotFoundException;
 import com.example.cashCombine.ledger.accounts.AccountRepository;
 import com.example.cashCombine.ledger.accounts.AccountType;
-import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprint;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
@@ -15,7 +14,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -24,26 +22,17 @@ public class ImportService {
 
 	private final AccountRepository accountRepository;
 	private final TransactionRepository transactionRepository;
-	// Currently hardcoded to CommBank, but could be extended to other banks
-	private final CommBankCsvParser parser;
-	// In memory map of fingerprint strategies for each account type
+	private final Map<AccountType, TransactionCsvParser> parsers;
 	private final Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies;
 
 	public ImportService(
 			AccountRepository accountRepository,
 			TransactionRepository transactionRepository,
-			CommBankCsvParser parser) {
-		this(accountRepository, transactionRepository, parser, defaultFingerprintStrategies());
-	}
-
-	ImportService(
-			AccountRepository accountRepository,
-			TransactionRepository transactionRepository,
-			CommBankCsvParser parser,
+			Map<AccountType, TransactionCsvParser> parsers,
 			Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies) {
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
-		this.parser = parser;
+		this.parsers = parsers;
 		this.fingerprintStrategies = fingerprintStrategies;
 	}
 
@@ -51,8 +40,8 @@ public class ImportService {
 	 * Imports CSV transactions into an account (idempotent).
 	 *
 	 * Input:
-	 * - accountId: target account (must exist; type selects fingerprint rules)
-	 * - input: CSV bytes (CommBank: no header; date, amount, description, balance per line)
+	 * - accountId: target account (must exist; type selects parser and fingerprint rules)
+	 * - input: CSV bytes (format depends on account type)
 	 *
 	 * Output ImportResult:
 	 * - accepted: new rows saved
@@ -64,12 +53,40 @@ public class ImportService {
 	 * - first data row unparseable: InvalidCsvFormatException (whole import fails)
 	 */
 	public ImportResult importCsv(AccountId accountId, InputStream input) throws IOException {
-		Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundException(accountId));
-		TransactionFingerprintStrategy fingerprintStrategy = fingerprintStrategies.get(account.type());
-		if (fingerprintStrategy == null) {
-			throw new IllegalArgumentException("Account type" + account.type() + " could not be found");
-		}
+		Account account = requireAccount(accountId);
+		TransactionCsvParser parser = requireParser(account.type());
+		TransactionFingerprintStrategy fingerprintStrategy = requireFingerprintStrategy(account.type());
 
+		ImportResult result = processRows(accountId, input, parser, fingerprintStrategy);
+		markImportedIfNeeded(account, result);
+		return result;
+	}
+
+	private Account requireAccount(AccountId accountId) {
+		return accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundException(accountId));
+	}
+
+	private TransactionCsvParser requireParser(AccountType accountType) {
+		TransactionCsvParser parser = parsers.get(accountType);
+		if (parser == null) {
+			throw new IllegalArgumentException("No CSV parser registered for account type: " + accountType);
+		}
+		return parser;
+	}
+
+	private TransactionFingerprintStrategy requireFingerprintStrategy(AccountType accountType) {
+		TransactionFingerprintStrategy strategy = fingerprintStrategies.get(accountType);
+		if (strategy == null) {
+			throw new IllegalArgumentException("No fingerprint strategy registered for account type: " + accountType);
+		}
+		return strategy;
+	}
+
+	private ImportResult processRows(
+			AccountId accountId,
+			InputStream input,
+			TransactionCsvParser parser,
+			TransactionFingerprintStrategy fingerprintStrategy) throws IOException {
 		int accepted = 0;
 		int duplicate = 0;
 		int rejected = 0;
@@ -83,43 +100,57 @@ public class ImportService {
 					continue;
 				}
 
-				try {
-					ParsedTransactionRow row = parser.parseLine(line);
-					TransactionFingerprint fingerprint = fingerprintStrategy.fingerprint(row);
-					if (transactionRepository.existsByAccountAndFingerprint(accountId, fingerprint)
-							|| acceptedThisImport.contains(fingerprint)) {
-						duplicate++;
-					}
-					else {
-						Transaction transaction = Transaction.create(accountId, row);
-						transactionRepository.save(transaction);
-						acceptedThisImport.add(fingerprint);
-						accepted++;
-					}
+				RowOutcome outcome = processRow(accountId, line, parser, fingerprintStrategy, acceptedThisImport, firstDataRow);
+				switch (outcome) {
+					case ACCEPTED -> accepted++;
+					case DUPLICATE -> duplicate++;
+					case REJECTED -> rejected++;
 				}
-				catch (InvalidCsvRowException ex) {
-					if (firstDataRow) {
-						throw new InvalidCsvFormatException(ex.getMessage(), ex);
-					}
-					rejected++;
-				}
-
 				firstDataRow = false;
 			}
-		}
-
-		if (accepted > 0 || duplicate > 0) {
-			account.markAsImported();
-			accountRepository.save(account);
 		}
 
 		return new ImportResult(accepted, duplicate, rejected);
 	}
 
-	private static Map<AccountType, TransactionFingerprintStrategy> defaultFingerprintStrategies() {
-		Map<AccountType, TransactionFingerprintStrategy> strategies = new EnumMap<>(AccountType.class);
-		strategies.put(AccountType.COMMBANK, new CommBankFingerprintStrategy());
-		return strategies;
+	private RowOutcome processRow(
+			AccountId accountId,
+			String line,
+			TransactionCsvParser parser,
+			TransactionFingerprintStrategy fingerprintStrategy,
+			Set<TransactionFingerprint> acceptedThisImport,
+			boolean firstDataRow) {
+		try {
+			ParsedTransactionRow row = parser.parseLine(line);
+			TransactionFingerprint fingerprint = fingerprintStrategy.fingerprint(row);
+
+			if (transactionRepository.existsByAccountAndFingerprint(accountId, fingerprint)
+					|| acceptedThisImport.contains(fingerprint)) {
+				return RowOutcome.DUPLICATE;
+			}
+
+			transactionRepository.save(Transaction.create(accountId, row));
+			acceptedThisImport.add(fingerprint);
+			return RowOutcome.ACCEPTED;
+		}
+		catch (InvalidCsvRowException ex) {
+			if (firstDataRow) {
+				throw new InvalidCsvFormatException(ex.getMessage(), ex);
+			}
+			return RowOutcome.REJECTED;
+		}
 	}
 
+	private void markImportedIfNeeded(Account account, ImportResult result) {
+		if (result.accepted() > 0 || result.duplicate() > 0) {
+			account.markAsImported();
+			accountRepository.save(account);
+		}
+	}
+
+	private enum RowOutcome {
+		ACCEPTED,
+		DUPLICATE,
+		REJECTED
+	}
 }
