@@ -1,0 +1,38 @@
+package com.example.cashCombine.ledger.categorisation;
+
+public class Category {
+
+	public static final String UNCATEGORISED_NAME = "Uncategorised";
+
+	private final CategoryId id;
+	private final String name;
+
+	private Category(CategoryId id, String name) {
+		this.id = id;
+		this.name = name;
+	}
+
+	public static Category create(String name) {
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException("Category name is required");
+		}
+		return new Category(CategoryId.generate(), name.trim());
+	}
+
+	public static Category uncategorised() {
+		return create(UNCATEGORISED_NAME);
+	}
+
+	public CategoryId id() {
+		return id;
+	}
+
+	public String name() {
+		return name;
+	}
+
+	public boolean isUncategorised() {
+		return UNCATEGORISED_NAME.equalsIgnoreCase(name);
+	}
+
+}

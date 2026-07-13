@@ -3,7 +3,9 @@ package com.example.cashCombine.ledger.transactions;
 import com.example.cashCombine.ledger.accounts.AccountId;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class InMemoryTransactionRepository implements TransactionRepository {
@@ -22,6 +24,18 @@ public class InMemoryTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public Optional<Transaction> findById(TransactionId id) {
+		return Optional.ofNullable(transactions.get(id));
+	}
+
+	@Override
+	public List<Transaction> findByAccountId(AccountId accountId) {
+		return transactions.values().stream()
+				.filter(transaction -> transaction.accountId().equals(accountId))
+				.toList();
+	}
+
+	@Override
 	public boolean existsByAccountAndFingerprint(AccountId accountId, TransactionFingerprint fingerprint) {
 		return fingerprints.contains(new AccountFingerprintKey(accountId, fingerprint));
 	}
@@ -31,4 +45,5 @@ public class InMemoryTransactionRepository implements TransactionRepository {
 		transactions.entrySet().removeIf(entry -> entry.getValue().accountId().equals(accountId));
 		fingerprints.removeIf(key -> key.accountId().equals(accountId));
 	}
+
 }

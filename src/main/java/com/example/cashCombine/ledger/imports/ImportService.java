@@ -5,6 +5,8 @@ import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.accounts.AccountNotFoundException;
 import com.example.cashCombine.ledger.accounts.AccountRepository;
 import com.example.cashCombine.ledger.accounts.AccountType;
+import com.example.cashCombine.ledger.categorisation.CategoryId;
+import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprint;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
@@ -24,16 +26,19 @@ public class ImportService {
 	private final TransactionRepository transactionRepository;
 	private final Map<AccountType, TransactionCsvParser> parsers;
 	private final Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies;
+	private final TransactionClassifier classifier;
 
 	public ImportService(
 			AccountRepository accountRepository,
 			TransactionRepository transactionRepository,
 			Map<AccountType, TransactionCsvParser> parsers,
-			Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies) {
+			Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies,
+			TransactionClassifier classifier) {
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
 		this.parsers = parsers;
 		this.fingerprintStrategies = fingerprintStrategies;
+		this.classifier = classifier;
 	}
 
 	/**
@@ -44,7 +49,7 @@ public class ImportService {
 	 * - input: CSV bytes (format depends on account type)
 	 *
 	 * Output ImportResult:
-	 * - accepted: new rows saved
+	 * - accepted: new rows saved (with category from rules or Uncategorised)
 	 * - duplicate: already seen for this account (skipped, not updated)
 	 * - rejected: bad rows after the first data row (skipped; import continues)
 	 *
@@ -129,7 +134,8 @@ public class ImportService {
 				return RowOutcome.DUPLICATE;
 			}
 
-			transactionRepository.save(Transaction.create(accountId, row));
+			CategoryId categoryId = classifier.classify(row.description());
+			transactionRepository.save(Transaction.create(accountId, row, categoryId));
 			acceptedThisImport.add(fingerprint);
 			return RowOutcome.ACCEPTED;
 		}
@@ -153,4 +159,5 @@ public class ImportService {
 		DUPLICATE,
 		REJECTED
 	}
+
 }

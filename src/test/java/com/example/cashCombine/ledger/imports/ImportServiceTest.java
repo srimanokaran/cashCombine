@@ -9,8 +9,16 @@ import com.example.cashCombine.ledger.accounts.AccountNotFoundException;
 import com.example.cashCombine.ledger.accounts.AccountService;
 import com.example.cashCombine.ledger.accounts.AccountType;
 import com.example.cashCombine.ledger.accounts.InMemoryAccountRepository;
+import com.example.cashCombine.ledger.categorisation.Category;
+import com.example.cashCombine.ledger.categorisation.CategoryRepository;
+import com.example.cashCombine.ledger.categorisation.ClassificationRule;
+import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
+import com.example.cashCombine.ledger.categorisation.InMemoryCategoryRepository;
+import com.example.cashCombine.ledger.categorisation.InMemoryClassificationRuleRepository;
+import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
 import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository;
+import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import java.io.ByteArrayInputStream;
@@ -25,6 +33,8 @@ class ImportServiceTest {
 
 	private AccountService accountService;
 	private TransactionRepository transactionRepository;
+	private Category groceries;
+	private Category uncategorised;
 	private ImportService importService;
 
 	@BeforeEach
@@ -33,13 +43,27 @@ class ImportServiceTest {
 		transactionRepository = new InMemoryTransactionRepository();
 		accountService = new AccountService(accountRepository, transactionRepository);
 
+		CategoryRepository categoryRepository = new InMemoryCategoryRepository();
+		uncategorised = categoryRepository.save(Category.uncategorised());
+		groceries = categoryRepository.save(Category.create("Groceries"));
+
+		ClassificationRuleRepository ruleRepository = new InMemoryClassificationRuleRepository();
+		ruleRepository.save(ClassificationRule.create("WOOLWORTHS", groceries.id()));
+
+		TransactionClassifier classifier = new TransactionClassifier(ruleRepository, uncategorised.id());
+
 		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
 		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());
 
 		Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies = new EnumMap<>(AccountType.class);
 		fingerprintStrategies.put(AccountType.COMMBANK, new CommBankFingerprintStrategy());
 
-		importService = new ImportService(accountRepository, transactionRepository, parsers, fingerprintStrategies);
+		importService = new ImportService(
+				accountRepository,
+				transactionRepository,
+				parsers,
+				fingerprintStrategies,
+				classifier);
 	}
 
 	@Test
@@ -52,6 +76,21 @@ class ImportServiceTest {
 		assertThat(result.duplicate()).isEqualTo(1);
 		assertThat(result.rejected()).isZero();
 		assertThat(accountService.getAccount(account.id()).hasImports()).isTrue();
+	}
+
+	@Test
+	void categorisesMatchingRowsAndFallsBackToUncategorised() throws Exception {
+		Account account = accountService.createAccount("CommBank Everyday", AccountType.COMMBANK);
+		String csv = """
+				10/07/2026,"-45.00","WOOLWORTHS 1234 FAKETOWN VIC AUS","+2455.00"
+				09/07/2026,"-12.50","CAFE EXAMPLE BLEND FAKETOWN AUS","+2467.50"
+				""";
+
+		importService.importCsv(account.id(), stream(csv));
+
+		assertThat(transactionRepository.findByAccountId(account.id()))
+				.extracting(Transaction::categoryId)
+				.containsExactlyInAnyOrder(groceries.id(), uncategorised.id());
 	}
 
 	@Test
