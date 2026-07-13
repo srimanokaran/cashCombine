@@ -1,6 +1,7 @@
 package com.example.cashCombine.ledger.transactions;
 
 import com.example.cashCombine.ledger.accounts.AccountId;
+import com.example.cashCombine.ledger.categorisation.CategoryAssignmentSource;
 import com.example.cashCombine.ledger.categorisation.CategoryId;
 import com.example.cashCombine.ledger.imports.ParsedTransactionRow;
 import java.math.BigDecimal;
@@ -14,7 +15,8 @@ public class Transaction {
 	private final BigDecimal amount;
 	private final String description;
 	private final BigDecimal balance;
-	private final CategoryId categoryId;
+	private CategoryId categoryId;
+	private CategoryAssignmentSource categoryAssignmentSource;
 
 	private Transaction(
 			TransactionId id,
@@ -23,7 +25,8 @@ public class Transaction {
 			BigDecimal amount,
 			String description,
 			BigDecimal balance,
-			CategoryId categoryId) {
+			CategoryId categoryId,
+			CategoryAssignmentSource categoryAssignmentSource) {
 		this.id = id;
 		this.accountId = accountId;
 		this.date = date;
@@ -31,6 +34,7 @@ public class Transaction {
 		this.description = description;
 		this.balance = balance;
 		this.categoryId = categoryId;
+		this.categoryAssignmentSource = categoryAssignmentSource;
 	}
 
 	public static Transaction create(AccountId accountId, ParsedTransactionRow row, CategoryId categoryId) {
@@ -44,7 +48,16 @@ public class Transaction {
 				row.amount(),
 				row.description(),
 				row.balance(),
-				categoryId);
+				categoryId,
+				CategoryAssignmentSource.RULE);
+	}
+
+	public void changeCategory(CategoryId newCategoryId) {
+		if (newCategoryId == null) {
+			throw new IllegalArgumentException("Category id is required");
+		}
+		this.categoryId = newCategoryId;
+		this.categoryAssignmentSource = CategoryAssignmentSource.MANUAL;
 	}
 
 	public TransactionId id() {
@@ -73,6 +86,14 @@ public class Transaction {
 
 	public CategoryId categoryId() {
 		return categoryId;
+	}
+
+	public CategoryAssignmentSource categoryAssignmentSource() {
+		return categoryAssignmentSource;
+	}
+
+	public boolean isManuallyCategorised() {
+		return categoryAssignmentSource == CategoryAssignmentSource.MANUAL;
 	}
 
 	public TransactionFingerprint fingerprint() {

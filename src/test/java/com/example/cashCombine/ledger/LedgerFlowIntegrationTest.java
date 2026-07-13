@@ -9,6 +9,7 @@ import com.example.cashCombine.ledger.accounts.AccountService;
 import com.example.cashCombine.ledger.accounts.AccountType;
 import com.example.cashCombine.ledger.accounts.InMemoryAccountRepository;
 import com.example.cashCombine.ledger.categorisation.Category;
+import com.example.cashCombine.ledger.categorisation.CategoryAssignmentSource;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
@@ -24,6 +25,7 @@ import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
+import com.example.cashCombine.ledger.transactions.TransactionService;
 import java.io.InputStream;
 import java.util.EnumMap;
 import java.util.List;
@@ -32,17 +34,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * End-to-end flow across accounts, import, categorisation, and delete.
+ * End-to-end flow across accounts, import, categorisation, override, and delete.
  * Uses in-memory repos (domain integration). Spring/JPA persistence comes later.
  */
 class LedgerFlowIntegrationTest {
 
 	private AccountService accountService;
 	private ImportService importService;
+	private TransactionService transactionService;
 	private TransactionRepository transactionRepository;
+	private CategoryRepository categoryRepository;
 	private Category uncategorised;
 	private Category groceries;
 	private Category streaming;
+	private Category dining;
 
 	@BeforeEach
 	void setUp() {
@@ -50,16 +55,18 @@ class LedgerFlowIntegrationTest {
 		transactionRepository = new InMemoryTransactionRepository();
 		accountService = new AccountService(accountRepository, transactionRepository);
 
-		CategoryRepository categoryRepository = new InMemoryCategoryRepository();
+		categoryRepository = new InMemoryCategoryRepository();
 		uncategorised = categoryRepository.save(Category.uncategorised());
 		groceries = categoryRepository.save(Category.create("Groceries"));
 		streaming = categoryRepository.save(Category.create("Streaming"));
+		dining = categoryRepository.save(Category.create("Dining"));
 
 		ClassificationRuleRepository ruleRepository = new InMemoryClassificationRuleRepository();
 		ruleRepository.save(ClassificationRule.create("WOOLWORTHS", groceries.id()));
 		ruleRepository.save(ClassificationRule.create("STREAMING", streaming.id()));
 
 		TransactionClassifier classifier = new TransactionClassifier(ruleRepository, uncategorised.id());
+		transactionService = new TransactionService(transactionRepository, categoryRepository);
 
 		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
 		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());
@@ -76,7 +83,7 @@ class LedgerFlowIntegrationTest {
 	}
 
 	@Test
-	void createAccount_importCsv_categorise_reimport_thenDelete() throws Exception {
+	void createAccount_importCsv_categorise_override_reimport_thenDelete() throws Exception {
 		// 1. Create account
 		Account account = accountService.createAccount("CommBank Everyday", AccountType.COMMBANK);
 		assertThat(account.hasImports()).isFalse();
@@ -104,19 +111,28 @@ class LedgerFlowIntegrationTest {
 			assertThat(tx.description()).contains("STREAMING");
 			assertThat(tx.categoryId()).isEqualTo(streaming.id());
 		});
-		assertThat(transactions).anySatisfy(tx -> {
-			assertThat(tx.description()).contains("CAFE EXAMPLE");
-			assertThat(tx.categoryId()).isEqualTo(uncategorised.id());
-		});
+		Transaction cafe = transactions.stream()
+				.filter(tx -> tx.description().contains("CAFE EXAMPLE"))
+				.findFirst()
+				.orElseThrow();
+		assertThat(cafe.categoryId()).isEqualTo(uncategorised.id());
+		assertThat(cafe.categoryAssignmentSource()).isEqualTo(CategoryAssignmentSource.RULE);
 
-		// 4. Re-import same file — idempotent
+		// 4. Manual override
+		Transaction overridden = transactionService.changeCategory(cafe.id(), dining.id());
+		assertThat(overridden.categoryId()).isEqualTo(dining.id());
+		assertThat(overridden.isManuallyCategorised()).isTrue();
+
+		// 5. Re-import same file — idempotent; manual category preserved
 		ImportResult secondImport = importService.importCsv(account.id(), sampleCsvStream());
 		assertThat(secondImport.accepted()).isZero();
 		assertThat(secondImport.duplicate()).isEqualTo(8);
 		assertThat(secondImport.rejected()).isZero();
 		assertThat(transactionRepository.findByAccountId(account.id())).hasSize(7);
+		assertThat(transactionService.getTransaction(cafe.id()).categoryId()).isEqualTo(dining.id());
+		assertThat(transactionService.getTransaction(cafe.id()).isManuallyCategorised()).isTrue();
 
-		// 5. Delete account cascades transactions
+		// 6. Delete account cascades transactions
 		accountService.deleteAccount(account.id());
 		assertThatThrownBy(() -> accountService.getAccount(account.id()))
 				.isInstanceOf(AccountNotFoundException.class);
