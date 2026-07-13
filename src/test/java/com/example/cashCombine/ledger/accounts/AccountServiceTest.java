@@ -68,4 +68,12 @@ class AccountServiceTest {
 				.hasMessageContaining("name");
 	}
 
+	@Test
+	void listsCreatedAccounts() {
+		Account first = accountService.createAccount("Everyday", AccountType.COMMBANK);
+		Account second = accountService.createAccount("Savings", AccountType.COMMBANK);
+
+		assertThat(accountService.listAccounts()).containsExactlyInAnyOrder(first, second);
+	}
+
 }

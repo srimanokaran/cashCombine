@@ -22,6 +22,10 @@ public class ClassificationRule {
 		return new ClassificationRule(ClassificationRuleId.generate(), pattern.trim(), categoryId);
 	}
 
+	public static ClassificationRule reconstitute(ClassificationRuleId id, String pattern, CategoryId categoryId) {
+		return new ClassificationRule(id, pattern, categoryId);
+	}
+
 	public ClassificationRuleId id() {
 		return id;
 	}

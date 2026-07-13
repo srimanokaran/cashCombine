@@ -19,6 +19,10 @@ public class Category {
 		return new Category(CategoryId.generate(), name.trim());
 	}
 
+	public static Category reconstitute(CategoryId id, String name) {
+		return new Category(id, name);
+	}
+
 	public static Category uncategorised() {
 		return create(UNCATEGORISED_NAME);
 	}

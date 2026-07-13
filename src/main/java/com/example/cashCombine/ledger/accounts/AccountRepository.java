@@ -1,5 +1,6 @@
 package com.example.cashCombine.ledger.accounts;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AccountRepository {
@@ -7,6 +8,8 @@ public interface AccountRepository {
 	Account save(Account account);
 
 	Optional<Account> findById(AccountId id);
+
+	List<Account> findAll();
 
 	void deleteById(AccountId id);
 

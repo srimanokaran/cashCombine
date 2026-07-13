@@ -19,7 +19,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.transaction.annotation.Transactional;
 
+@Transactional
 public class ImportService {
 
 	private final AccountRepository accountRepository;

@@ -52,6 +52,19 @@ public class Transaction {
 				CategoryAssignmentSource.RULE);
 	}
 
+	public static Transaction reconstitute(
+			TransactionId id,
+			AccountId accountId,
+			LocalDate date,
+			BigDecimal amount,
+			String description,
+			BigDecimal balance,
+			CategoryId categoryId,
+			CategoryAssignmentSource categoryAssignmentSource) {
+		return new Transaction(
+				id, accountId, date, amount, description, balance, categoryId, categoryAssignmentSource);
+	}
+
 	public void changeCategory(CategoryId newCategoryId) {
 		if (newCategoryId == null) {
 			throw new IllegalArgumentException("Category id is required");

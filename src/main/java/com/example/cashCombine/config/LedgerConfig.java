@@ -1,0 +1,95 @@
+package com.example.cashCombine.config;
+
+import com.example.cashCombine.ledger.accounts.AccountRepository;
+import com.example.cashCombine.ledger.accounts.AccountService;
+import com.example.cashCombine.ledger.accounts.AccountType;
+import com.example.cashCombine.ledger.categorisation.Category;
+import com.example.cashCombine.ledger.categorisation.CategoryId;
+import com.example.cashCombine.ledger.categorisation.CategoryRepository;
+import com.example.cashCombine.ledger.categorisation.CategoryService;
+import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
+import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
+import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
+import com.example.cashCombine.ledger.imports.CommBankCsvParser;
+import com.example.cashCombine.ledger.imports.ImportService;
+import com.example.cashCombine.ledger.imports.TransactionCsvParser;
+import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
+import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
+import com.example.cashCombine.ledger.transactions.TransactionRepository;
+import com.example.cashCombine.ledger.transactions.TransactionService;
+import java.util.EnumMap;
+import java.util.Map;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+@Configuration
+@EnableTransactionManagement
+public class LedgerConfig {
+
+	@Bean
+	AccountService accountService(AccountRepository accountRepository, TransactionRepository transactionRepository) {
+		return new AccountService(accountRepository, transactionRepository);
+	}
+
+	@Bean
+	CategoryService categoryService(CategoryRepository categoryRepository) {
+		return new CategoryService(categoryRepository);
+	}
+
+	@Bean
+	ClassificationRuleService classificationRuleService(
+			ClassificationRuleRepository ruleRepository, CategoryRepository categoryRepository) {
+		return new ClassificationRuleService(ruleRepository, categoryRepository);
+	}
+
+	@Bean
+	TransactionService transactionService(
+			TransactionRepository transactionRepository, CategoryRepository categoryRepository) {
+		return new TransactionService(transactionRepository, categoryRepository);
+	}
+
+	@Bean
+	CategoryId uncategorisedCategoryId(CategoryRepository categoryRepository) {
+		return categoryRepository
+				.findByName(Category.UNCATEGORISED_NAME)
+				.orElseGet(() -> categoryRepository.save(Category.uncategorised()))
+				.id();
+	}
+
+	@Bean
+	TransactionClassifier transactionClassifier(
+			ClassificationRuleRepository ruleRepository, CategoryId uncategorisedCategoryId) {
+		return new TransactionClassifier(ruleRepository, uncategorisedCategoryId);
+	}
+
+	@Bean
+	Map<AccountType, TransactionCsvParser> transactionCsvParsers() {
+		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
+		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());
+		return parsers;
+	}
+
+	@Bean
+	Map<AccountType, TransactionFingerprintStrategy> transactionFingerprintStrategies() {
+		Map<AccountType, TransactionFingerprintStrategy> strategies = new EnumMap<>(AccountType.class);
+		strategies.put(AccountType.COMMBANK, new CommBankFingerprintStrategy());
+		return strategies;
+	}
+
+	@Bean
+	ImportService importService(
+			AccountRepository accountRepository,
+			TransactionRepository transactionRepository,
+			Map<AccountType, TransactionCsvParser> transactionCsvParsers,
+			Map<AccountType, TransactionFingerprintStrategy> transactionFingerprintStrategies,
+			TransactionClassifier transactionClassifier) {
+		return new ImportService(
+				accountRepository,
+				transactionRepository,
+				transactionCsvParsers,
+				transactionFingerprintStrategies,
+				transactionClassifier);
+	}
+
+}

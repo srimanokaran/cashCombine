@@ -76,9 +76,23 @@ class TransactionServiceTest {
 		assertThat(updated.description()).isEqualTo(originalDescription);
 	}
 
+	@Test
+	void listsTransactionsForAccount() {
+		AccountId accountId = AccountId.generate();
+		Transaction first = transactionRepository.save(sampleTransaction(accountId, uncategorised.id()));
+		Transaction second = transactionRepository.save(sampleTransaction(accountId, groceries.id()));
+		transactionRepository.save(sampleTransaction(AccountId.generate(), dining.id()));
+
+		assertThat(transactionService.listByAccount(accountId)).containsExactlyInAnyOrder(first, second);
+	}
+
 	private Transaction sampleTransaction(CategoryId categoryId) {
+		return sampleTransaction(AccountId.generate(), categoryId);
+	}
+
+	private Transaction sampleTransaction(AccountId accountId, CategoryId categoryId) {
 		return Transaction.create(
-				AccountId.generate(),
+				accountId,
 				new ParsedTransactionRow(
 						LocalDate.of(2026, 7, 10),
 						new BigDecimal("-12.50"),

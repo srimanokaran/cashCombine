@@ -1,7 +1,10 @@
 package com.example.cashCombine.ledger.accounts;
 
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
+import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
+@Transactional
 public class AccountService {
 
 	private final AccountRepository accountRepository;
@@ -15,6 +18,10 @@ public class AccountService {
 	public Account createAccount(String name, AccountType type) {
 		Account account = Account.create(name, type);
 		return accountRepository.save(account);
+	}
+
+	public List<Account> listAccounts() {
+		return accountRepository.findAll();
 	}
 
 	public void deleteAccount(AccountId id) {

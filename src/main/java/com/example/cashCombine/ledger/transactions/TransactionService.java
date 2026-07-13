@@ -1,8 +1,10 @@
 package com.example.cashCombine.ledger.transactions;
 
+import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.categorisation.CategoryId;
 import com.example.cashCombine.ledger.categorisation.CategoryNotFoundException;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
+import java.util.List;
 
 public class TransactionService {
 
@@ -28,6 +30,10 @@ public class TransactionService {
 	public Transaction getTransaction(TransactionId transactionId) {
 		return transactionRepository.findById(transactionId)
 				.orElseThrow(() -> new TransactionNotFoundException(transactionId));
+	}
+
+	public List<Transaction> listByAccount(AccountId accountId) {
+		return transactionRepository.findByAccountId(accountId);
 	}
 
 }

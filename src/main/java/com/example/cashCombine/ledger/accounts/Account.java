@@ -24,6 +24,10 @@ public class Account {
 		return new Account(AccountId.generate(), name.trim(), type, false);
 	}
 
+	public static Account reconstitute(AccountId id, String name, AccountType type, boolean hasImports) {
+		return new Account(id, name, type, hasImports);
+	}
+
 	public AccountId id() {
 		return id;
 	}
