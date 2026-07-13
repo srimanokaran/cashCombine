@@ -28,5 +28,4 @@ public class InMemoryAccountRepository implements AccountRepository {
 	public boolean existsById(AccountId id) {
 		return accounts.containsKey(id);
 	}
-
 }

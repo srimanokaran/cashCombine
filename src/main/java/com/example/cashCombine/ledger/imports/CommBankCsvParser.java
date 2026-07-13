@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -18,23 +17,38 @@ public class CommBankCsvParser {
 	private static final int EXPECTED_COLUMN_COUNT = 4;
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
+	/**
+	 * Parses a CommBank CSV export (no header row).
+	 *
+	 * Input line shape (exactly 4 columns):
+	 * {@code 10/07/2026,"-45.00","WOOLWORTHS 1234 FAKETOWN VIC AUS","+2455.00"}
+	 *
+	 * Columns: date (DD/MM/YYYY), signed amount, description, signed balance.
+	 *
+	 * Output shape ({@link ParsedTransactionRow}):
+	 * {@code date=2026-07-10, amount=-45.00, description="WOOLWORTHS...", balance=2455.00}
+	 */
 	public List<ParsedTransactionRow> parse(InputStream input) throws IOException {
 		try (var reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
 			return parse(reader);
 		}
 	}
 
-	public List<ParsedTransactionRow> parse(Reader reader) throws IOException {
+	/**
+	 * Same input/output shape as {@link #parse(InputStream)}.
+	 * Does not close {@code bufferedReader} — caller owns the resource.
+	 */
+	public List<ParsedTransactionRow> parse(BufferedReader bufferedReader) throws IOException {
 		List<ParsedTransactionRow> rows = new ArrayList<>();
-		try (var bufferedReader = reader instanceof BufferedReader br ? br : new BufferedReader(reader)) {
-			String line;
-			while ((line = bufferedReader.readLine()) != null) {
-				if (line.isBlank()) {
-					continue;
-				}
-				rows.add(parseLine(line));
+
+		String line;
+		while ((line = bufferedReader.readLine()) != null) {
+			if (line.isBlank()) {
+				continue;
 			}
+			rows.add(parseLine(line));
 		}
+
 		return rows;
 	}
 
@@ -62,6 +76,15 @@ public class CommBankCsvParser {
 		return new BigDecimal(normalized);
 	}
 
+	/**
+	 * Splits one CSV line into fields, respecting quoted commas.
+	 *
+	 * Input:
+	 * {@code 10/07/2026,"-45.00","WOOLWORTHS 1234, FAKETOWN","+2455.00"}
+	 *
+	 * Output (quotes removed, commas inside quotes kept):
+	 * {@code ["10/07/2026", "-45.00", "WOOLWORTHS 1234, FAKETOWN", "+2455.00"]}
+	 */
 	static String[] splitCsvLine(String line) {
 		List<String> fields = new ArrayList<>();
 		StringBuilder current = new StringBuilder();

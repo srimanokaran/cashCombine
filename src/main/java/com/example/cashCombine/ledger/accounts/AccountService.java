@@ -1,11 +1,15 @@
 package com.example.cashCombine.ledger.accounts;
 
+import com.example.cashCombine.ledger.transactions.TransactionRepository;
+
 public class AccountService {
 
 	private final AccountRepository accountRepository;
+	private final TransactionRepository transactionRepository;
 
-	public AccountService(AccountRepository accountRepository) {
+	public AccountService(AccountRepository accountRepository, TransactionRepository transactionRepository) {
 		this.accountRepository = accountRepository;
+		this.transactionRepository = transactionRepository;
 	}
 
 	public Account createAccount(String name, AccountType type) {
@@ -17,6 +21,7 @@ public class AccountService {
 		if (!accountRepository.existsById(id)) {
 			throw new AccountNotFoundException(id);
 		}
+		transactionRepository.deleteByAccountId(id);
 		accountRepository.deleteById(id);
 	}
 
