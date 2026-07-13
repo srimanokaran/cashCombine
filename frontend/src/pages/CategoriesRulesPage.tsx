@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { Category, Rule } from '../types'
 
+const UNCATEGORISED = 'Uncategorised'
+
+function ruleTargetCategories(categories: Category[]) {
+  return categories.filter((category) => category.name !== UNCATEGORISED)
+}
+
 export function CategoriesRulesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [rules, setRules] = useState<Rule[]>([])
@@ -10,7 +16,10 @@ export function CategoriesRulesPage() {
   const [ruleCategoryId, setRuleCategoryId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const targets = ruleTargetCategories(categories)
+  const canAddRule = targets.length > 0 && ruleCategoryId !== ''
+
+  async function load(selectCategoryId?: string) {
     setError(null)
     try {
       const [categoryData, ruleData] = await Promise.all([
@@ -19,10 +28,16 @@ export function CategoriesRulesPage() {
       ])
       setCategories(categoryData)
       setRules(ruleData)
-      if (!ruleCategoryId && categoryData.length > 0) {
-        const firstNonDefault =
-          categoryData.find((c) => c.name !== 'Uncategorised') ?? categoryData[0]
-        setRuleCategoryId(firstNonDefault.id)
+
+      const available = ruleTargetCategories(categoryData)
+      if (selectCategoryId && available.some((c) => c.id === selectCategoryId)) {
+        setRuleCategoryId(selectCategoryId)
+      } else if (ruleCategoryId && available.some((c) => c.id === ruleCategoryId)) {
+        // keep current selection
+      } else if (available.length > 0) {
+        setRuleCategoryId(available[0].id)
+      } else {
+        setRuleCategoryId('')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
@@ -37,9 +52,9 @@ export function CategoriesRulesPage() {
     event.preventDefault()
     setError(null)
     try {
-      await api.createCategory(categoryName.trim())
+      const created = await api.createCategory(categoryName.trim())
       setCategoryName('')
-      await load()
+      await load(created.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create category')
     }
@@ -47,6 +62,9 @@ export function CategoriesRulesPage() {
 
   async function onCreateRule(event: React.FormEvent) {
     event.preventDefault()
+    if (!canAddRule) {
+      return
+    }
     setError(null)
     try {
       await api.createRule(pattern.trim(), ruleCategoryId)
@@ -54,6 +72,19 @@ export function CategoriesRulesPage() {
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create rule')
+    }
+  }
+
+  async function onDeleteRule(rule: Rule) {
+    if (!window.confirm(`Delete rule “${rule.pattern}”?`)) {
+      return
+    }
+    setError(null)
+    try {
+      await api.deleteRule(rule.id)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete rule')
     }
   }
 
@@ -94,24 +125,39 @@ export function CategoriesRulesPage() {
         <div className="panel">
           <h2>Rules</h2>
           <form className="stack-form" onSubmit={onCreateRule}>
-            <input
-              value={pattern}
-              onChange={(e) => setPattern(e.target.value)}
-              placeholder="Contains pattern (e.g. WOOLWORTHS)"
-              required
-            />
-            <select
-              value={ruleCategoryId}
-              onChange={(e) => setRuleCategoryId(e.target.value)}
-              required
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
+            <label className="field">
+              <span>Pattern</span>
+              <input
+                value={pattern}
+                onChange={(e) => setPattern(e.target.value)}
+                placeholder="Contains pattern (e.g. WOOLWORTHS)"
+                required
+              />
+            </label>
+            <label className="field">
+              <span>Category</span>
+              <select
+                value={ruleCategoryId}
+                onChange={(e) => setRuleCategoryId(e.target.value)}
+                required
+                disabled={targets.length === 0}
+              >
+                <option value="" disabled>
+                  Select category…
                 </option>
-              ))}
-            </select>
-            <button type="submit">Add rule</button>
+                {targets.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {targets.length === 0 && (
+              <p className="muted">Create a category first, then add a rule that maps a pattern to it.</p>
+            )}
+            <button type="submit" disabled={!canAddRule}>
+              Add rule
+            </button>
           </form>
           <ul className="list compact">
             {rules.length === 0 ? (
@@ -122,6 +168,13 @@ export function CategoriesRulesPage() {
                   <span>
                     “{rule.pattern}” → {categoryLabel(rule.categoryId)}
                   </span>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => void onDeleteRule(rule)}
+                  >
+                    Delete
+                  </button>
                 </li>
               ))
             )}

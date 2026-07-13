@@ -1,0 +1,22 @@
+# Quiet console: API request lines, almost no Spring/Hibernate noise
+spring:
+  main:
+    banner-mode: "off"
+  jpa:
+    show-sql: false
+    open-in-view: false
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss} %msg%n"
+  level:
+    root: WARN
+    org.springframework: WARN
+    org.springframework.boot: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm: WARN
+    com.zaxxer.hikari: WARN
+    org.apache.catalina: WARN
+    org.apache.tomcat: WARN
+    api: INFO

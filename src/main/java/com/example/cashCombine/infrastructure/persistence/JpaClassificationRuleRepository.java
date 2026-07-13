@@ -5,6 +5,7 @@ import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleId;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +29,19 @@ public class JpaClassificationRuleRepository implements ClassificationRuleReposi
 
 	@Override
 	@Transactional(readOnly = true)
+	public Optional<ClassificationRule> findById(ClassificationRuleId id) {
+		return jpaRepository.findById(id.value()).map(this::toDomain);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
 	public List<ClassificationRule> findAll() {
 		return jpaRepository.findAllByOrderByCreatedOrderAsc().stream().map(this::toDomain).toList();
+	}
+
+	@Override
+	public void deleteById(ClassificationRuleId id) {
+		jpaRepository.deleteById(id.value());
 	}
 
 	private ClassificationRule toDomain(ClassificationRuleJpaEntity entity) {

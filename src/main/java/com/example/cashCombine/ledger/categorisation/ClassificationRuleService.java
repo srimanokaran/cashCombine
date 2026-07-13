@@ -25,4 +25,11 @@ public class ClassificationRuleService {
 		return ruleRepository.findAll();
 	}
 
+	public void deleteRule(ClassificationRuleId ruleId) {
+		if (ruleRepository.findById(ruleId).isEmpty()) {
+			throw new RuleNotFoundException(ruleId);
+		}
+		ruleRepository.deleteById(ruleId);
+	}
+
 }

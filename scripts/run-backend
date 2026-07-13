@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "Starting cashCombine backend (quiet API log)"
+echo "  API:    http://localhost:8080"
+echo "  SQLite: ./cashcombine.db"
+echo "  Stop with Ctrl+C"
+echo
+
+export SPRING_PROFILES_ACTIVE=quiet
+exec ./gradlew bootRun --console=plain "$@"

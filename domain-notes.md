@@ -254,7 +254,8 @@ Bounded contexts (Budgeting, Insights, etc.) stay out of slice 1 per [goal.md](.
 2. ImportCsv → accepted / duplicate / rejected (no categorisation yet)
 3. Categories + rules + "Uncategorised"
 4. ChangeCategory (manual override)
-5. Second account type (e.g. Amex) — proves per-type headers and duplicate rules
+5. REST API + SQLite persistence + React SPA (slice 1 dogfood)
+6. Second account type (e.g. Amex) — proves per-type headers and duplicate rules
 ```
 
 Test invariants at each step before adding the next.
@@ -311,8 +312,8 @@ Alternatively: if row 1 looks like valid data, accept the file and only **reject
 
 ## Open decisions (resolve at implementation)
 
-- [ ] Confirm: manual category never overwritten on duplicate re-import (recommended: yes)
-- [ ] How users create categorisation rules in slice 1 (UI vs seeded config)
+- [x] Confirm: manual category never overwritten on duplicate re-import (yes — duplicates skip, no update)
+- [x] How users create categorisation rules in slice 1 — SPA + REST (`POST /api/rules`)
 - [x] CommBank CSV column mapping (see above — no header row)
 - [ ] Amex / second type fingerprint fields
 - [ ] ImportResult: counts only, or include rejected-row reasons?

@@ -6,6 +6,23 @@ Personal finance ledger: import bank CSVs, detect duplicates, categorise with ru
 
 ### Backend (Spring Boot + SQLite)
 
+Quiet API log (recommended while developing against the UI):
+
+```bash
+./scripts/run-backend
+```
+
+Example output:
+
+```text
+18:30:01 cashCombine ready → http://localhost:8080
+18:30:01 Logging /api/* calls (4xx/5xx show rejection reason)
+18:30:12 POST /api/accounts → 201 (18ms)
+18:30:20 POST /api/accounts/.../import → 400 rejected: Invalid CSV format... (42ms)
+```
+
+Full Spring logging:
+
 ```bash
 ./gradlew bootRun
 ```

@@ -97,6 +97,35 @@ class LedgerApiIntegrationTest {
 		mockMvc.perform(get("/api/accounts/" + accountId)).andExpect(status().isNotFound());
 	}
 
+	@Test
+	void createAndDeleteRule() throws Exception {
+		MvcResult categoryResult = mockMvc.perform(post("/api/categories")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Streaming\"}"))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String categoryId = readJsonField(categoryResult, "id");
+
+		MvcResult ruleResult = mockMvc.perform(post("/api/rules")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"pattern\":\"NETFLIX\",\"categoryId\":\"" + categoryId + "\"}"))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String ruleId = readJsonField(ruleResult, "id");
+
+		mockMvc.perform(get("/api/rules"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1));
+
+		mockMvc.perform(delete("/api/rules/" + ruleId)).andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/rules"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(0));
+
+		mockMvc.perform(delete("/api/rules/" + ruleId)).andExpect(status().isNotFound());
+	}
+
 	private static String readJsonField(MvcResult result, String field) throws Exception {
 		String json = result.getResponse().getContentAsString();
 		String marker = "\"" + field + "\":\"";

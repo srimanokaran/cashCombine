@@ -41,4 +41,19 @@ class ClassificationRuleServiceTest {
 				.hasMessageContaining("pattern");
 	}
 
+	@Test
+	void deletesExistingRule() {
+		ClassificationRule rule = ruleService.createRule("WOOLWORTHS", groceries.id());
+
+		ruleService.deleteRule(rule.id());
+
+		assertThat(ruleService.listRules()).isEmpty();
+	}
+
+	@Test
+	void deleteRejectsUnknownRule() {
+		assertThatThrownBy(() -> ruleService.deleteRule(ClassificationRuleId.generate()))
+				.isInstanceOf(RuleNotFoundException.class);
+	}
+
 }

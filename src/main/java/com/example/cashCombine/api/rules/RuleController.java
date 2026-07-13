@@ -1,11 +1,15 @@
 package com.example.cashCombine.api.rules;
 
 import com.example.cashCombine.ledger.categorisation.CategoryId;
+import com.example.cashCombine.ledger.categorisation.ClassificationRuleId;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +35,12 @@ public class RuleController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public RuleResponse create(@Valid @RequestBody CreateRuleRequest request) {
 		return RuleResponse.from(ruleService.createRule(request.pattern(), new CategoryId(request.categoryId())));
+	}
+
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@PathVariable UUID id) {
+		ruleService.deleteRule(new ClassificationRuleId(id));
 	}
 
 }

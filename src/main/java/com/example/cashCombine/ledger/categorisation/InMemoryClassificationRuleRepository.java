@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class InMemoryClassificationRuleRepository implements ClassificationRuleRepository {
 
@@ -16,8 +17,18 @@ public class InMemoryClassificationRuleRepository implements ClassificationRuleR
 	}
 
 	@Override
+	public Optional<ClassificationRule> findById(ClassificationRuleId id) {
+		return Optional.ofNullable(rules.get(id));
+	}
+
+	@Override
 	public List<ClassificationRule> findAll() {
 		return new ArrayList<>(rules.values());
+	}
+
+	@Override
+	public void deleteById(ClassificationRuleId id) {
+		rules.remove(id);
 	}
 
 }
