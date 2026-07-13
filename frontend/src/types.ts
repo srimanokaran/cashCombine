@@ -1,4 +1,4 @@
-export type AccountType = 'COMMBANK'
+export type AccountType = 'COMMBANK' | 'ING' | 'NAB_CREDIT_CARD'
 
 export type CategoryAssignmentSource = 'RULE' | 'MANUAL'
 
@@ -40,3 +40,6 @@ export interface ImportResult {
 export interface ApiError {
   message: string
 }
+
+/** Account types that currently have a CSV parser wired on the backend. */
+export const IMPORTABLE_ACCOUNT_TYPES: AccountType[] = ['COMMBANK']

@@ -22,6 +22,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   listAccounts: () => request<Account[]>('/api/accounts'),
+  ensureFixedAccounts: (() => {
+    let inFlight: Promise<Account[]> | null = null
+    return () => {
+      if (!inFlight) {
+        inFlight = request<Account[]>('/api/accounts/ensure-fixed', { method: 'POST' }).finally(() => {
+          inFlight = null
+        })
+      }
+      return inFlight
+    }
+  })(),
   createAccount: (name: string, type: AccountType) =>
     request<Account>('/api/accounts', {
       method: 'POST',

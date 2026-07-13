@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
-import type { Account, Category, ImportResult, Transaction } from '../types'
+import type { Account, Category, Transaction } from '../types'
 
 export function AccountDetailPage() {
   const { id = '' } = useParams()
   const [account, setAccount] = useState<Account | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -34,24 +33,6 @@ export function AccountDetailPage() {
   useEffect(() => {
     void load()
   }, [id])
-
-  async function onImport(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-    setError(null)
-    setImportResult(null)
-    try {
-      const result = await api.importCsv(id, file)
-      setImportResult(result)
-      await load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed')
-    } finally {
-      event.target.value = ''
-    }
-  }
 
   async function onChangeCategory(transactionId: string, categoryId: string) {
     setError(null)
@@ -81,7 +62,7 @@ export function AccountDetailPage() {
     return (
       <section className="page">
         <p className="error">{error ?? 'Account not found'}</p>
-        <Link to="/">Back to accounts</Link>
+        <Link to="/">Back to import</Link>
       </section>
     )
   }
@@ -89,24 +70,13 @@ export function AccountDetailPage() {
   return (
     <section className="page">
       <p className="crumb">
-        <Link to="/">Accounts</Link> / {account.name}
+        <Link to="/">Import</Link> / {account.name}
       </p>
       <h1>{account.name}</h1>
       <p className="lede">
-        {account.type}
-        {account.hasImports ? ' · has imports' : ' · no imports yet'}
+        {account.hasImports ? 'Has imports' : 'No imports yet'} — upload CSVs from the{' '}
+        <Link to="/">Import</Link> page.
       </p>
-
-      <div className="panel">
-        <h2>Import CSV</h2>
-        <input type="file" accept=".csv,text/csv" onChange={onImport} />
-        {importResult && (
-          <p className="import-result">
-            Accepted {importResult.accepted} · Duplicate {importResult.duplicate} · Rejected{' '}
-            {importResult.rejected}
-          </p>
-        )}
-      </div>
 
       {error && <p className="error">{error}</p>}
 

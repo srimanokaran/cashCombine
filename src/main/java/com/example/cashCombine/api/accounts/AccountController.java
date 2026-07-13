@@ -43,6 +43,11 @@ public class AccountController {
 		return accountService.listAccounts().stream().map(AccountResponse::from).toList();
 	}
 
+	@PostMapping("/ensure-fixed")
+	public List<AccountResponse> ensureFixed() {
+		return accountService.ensureFixedAccounts().stream().map(AccountResponse::from).toList();
+	}
+
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public AccountResponse create(@Valid @RequestBody CreateAccountRequest request) {

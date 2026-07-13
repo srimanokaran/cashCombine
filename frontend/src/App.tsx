@@ -11,7 +11,7 @@ function App() {
         <div className="brand">cashCombine</div>
         <nav>
           <NavLink to="/" end>
-            Accounts
+            Import
           </NavLink>
           <NavLink to="/categories">Categories &amp; rules</NavLink>
         </nav>

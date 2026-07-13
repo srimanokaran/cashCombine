@@ -9,6 +9,8 @@ public interface AccountRepository {
 
 	Optional<Account> findById(AccountId id);
 
+	Optional<Account> findByType(AccountType type);
+
 	List<Account> findAll();
 
 	void deleteById(AccountId id);

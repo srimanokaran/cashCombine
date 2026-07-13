@@ -46,3 +46,6 @@ CSVData*.csv
 !src/test/resources/**/*.csv
 
 goal.md
+### SQLite WAL ###
+*.db-wal
+*.db-shm

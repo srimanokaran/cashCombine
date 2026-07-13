@@ -3,6 +3,7 @@ package com.example.cashCombine.infrastructure.persistence;
 import com.example.cashCombine.ledger.accounts.Account;
 import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.accounts.AccountRepository;
+import com.example.cashCombine.ledger.accounts.AccountType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -30,6 +31,12 @@ public class JpaAccountRepository implements AccountRepository {
 	@Transactional(readOnly = true)
 	public Optional<Account> findById(AccountId id) {
 		return jpaRepository.findById(id.value()).map(this::toDomain);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Optional<Account> findByType(AccountType type) {
+		return jpaRepository.findFirstByType(type).map(this::toDomain);
 	}
 
 	@Override

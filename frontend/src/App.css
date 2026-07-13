@@ -90,6 +90,22 @@
   max-width: 28rem;
 }
 
+.import-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 32rem;
+}
+
+.import-form > button {
+  align-self: flex-start;
+}
+
+.import-form > button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .field {
   display: flex;
   flex-direction: column;

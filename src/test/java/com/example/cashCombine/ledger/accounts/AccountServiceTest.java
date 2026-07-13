@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.example.cashCombine.ledger.categorisation.Category;
 import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository;
 import com.example.cashCombine.ledger.transactions.Transaction;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -71,9 +72,23 @@ class AccountServiceTest {
 	@Test
 	void listsCreatedAccounts() {
 		Account first = accountService.createAccount("Everyday", AccountType.COMMBANK);
-		Account second = accountService.createAccount("Savings", AccountType.COMMBANK);
+		Account second = accountService.createAccount("Savings", AccountType.ING);
 
 		assertThat(accountService.listAccounts()).containsExactlyInAnyOrder(first, second);
+	}
+
+	@Test
+	void ensureFixedAccountsCreatesOnePerType() {
+		List<Account> accounts = accountService.ensureFixedAccounts();
+
+		assertThat(accounts).hasSize(AccountType.values().length);
+		assertThat(accounts).extracting(Account::type).containsExactly(AccountType.values());
+		assertThat(accounts).extracting(Account::name)
+				.containsExactly("CommBank", "ING", "NAB credit card");
+
+		List<Account> again = accountService.ensureFixedAccounts();
+		assertThat(again).extracting(Account::id).containsExactlyElementsOf(
+				accounts.stream().map(Account::id).toList());
 	}
 
 }

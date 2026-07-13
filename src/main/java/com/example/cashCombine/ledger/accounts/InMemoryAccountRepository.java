@@ -22,6 +22,11 @@ public class InMemoryAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public Optional<Account> findByType(AccountType type) {
+		return accounts.values().stream().filter(account -> account.type() == type).findFirst();
+	}
+
+	@Override
 	public List<Account> findAll() {
 		return new ArrayList<>(accounts.values());
 	}
