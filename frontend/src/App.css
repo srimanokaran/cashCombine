@@ -438,6 +438,10 @@ td .meta {
   margin-bottom: 1rem;
 }
 
+.panel + .panel {
+  margin-top: 1rem;
+}
+
 .summary-card {
   display: flex;
   flex-direction: column;

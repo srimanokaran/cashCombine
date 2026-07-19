@@ -69,6 +69,9 @@ export interface ExpenseDashboard {
   totalExpenses: number
   expenseTransactionCount: number
   categories: CategorySpend[]
+  totalIncome: number
+  incomeTransactionCount: number
+  incomeCategories: CategorySpend[]
 }
 
 export interface CategoryReanalysisResult {

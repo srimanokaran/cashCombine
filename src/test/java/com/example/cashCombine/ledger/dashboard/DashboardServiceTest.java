@@ -27,6 +27,7 @@ class DashboardServiceTest {
 	private Category dining;
 	private Category fundsBetweenAccounts;
 	private Category uncategorised;
+	private Category income;
 	private Account everyday;
 
 	@BeforeEach
@@ -37,6 +38,7 @@ class DashboardServiceTest {
 		uncategorised = categoryRepository.save(Category.uncategorised());
 		groceries = categoryRepository.save(Category.create("Groceries"));
 		dining = categoryRepository.save(Category.create("Dining"));
+		income = categoryRepository.save(Category.create(Category.INCOME_NAME));
 		fundsBetweenAccounts = categoryRepository.save(Category.create(Category.FUNDS_BETWEEN_ACCOUNTS_NAME));
 		everyday = accountRepository.save(Account.create("Everyday", AccountType.COMMBANK));
 		dashboardService = new DashboardService(transactionRepository, categoryRepository, accountRepository);
@@ -48,7 +50,7 @@ class DashboardServiceTest {
 		save(accountId, "-40.00", groceries, "WOOLWORTHS A", LocalDate.of(2026, 7, 10));
 		save(accountId, "-10.00", groceries, "WOOLWORTHS B", LocalDate.of(2026, 7, 9));
 		save(accountId, "-25.00", dining, "CAFE", LocalDate.of(2026, 7, 8));
-		save(accountId, "+100.00", uncategorised, "PAY", LocalDate.of(2026, 7, 7));
+		save(accountId, "+100.00", uncategorised, "FRIEND PAYBACK", LocalDate.of(2026, 7, 7));
 		save(accountId, "-4472.00", fundsBetweenAccounts, "SAVINGS", LocalDate.of(2026, 7, 6));
 
 		ExpenseDashboard dashboard = dashboardService.expenseBreakdown();
@@ -61,10 +63,41 @@ class DashboardServiceTest {
 		assertThat(dashboard.categories().get(0).percent()).isEqualByComparingTo("66.7");
 		assertThat(dashboard.categories().get(1).categoryName()).isEqualTo("Dining");
 		assertThat(dashboard.categories().get(1).amount()).isEqualByComparingTo("25.00");
+		assertThat(dashboard.totalIncome()).isEqualByComparingTo("100.00");
+		assertThat(dashboard.incomeCategories()).hasSize(1);
+		assertThat(dashboard.incomeCategories().get(0).categoryName()).isEqualTo("Uncategorised");
 	}
 
 	@Test
-	void listsExpenseTransactionsForCategoryNewestFirst() {
+	void incomeAndUncategorisedCreditsCountAsIncomeWhileNamedCreditsOffsetExpenses() {
+		AccountId accountId = everyday.id();
+		save(accountId, "+3200.00", income, "PAYROLL", LocalDate.of(2026, 7, 10));
+		save(accountId, "-80.00", dining, "DINNER WITH FRIENDS", LocalDate.of(2026, 7, 9));
+		save(accountId, "+30.00", dining, "FRIEND PAYBACK", LocalDate.of(2026, 7, 8));
+		save(accountId, "+50.00", uncategorised, "RANDOM CREDIT", LocalDate.of(2026, 7, 7));
+		save(accountId, "+4472.00", fundsBetweenAccounts, "FROM SAVINGS", LocalDate.of(2026, 7, 6));
+		save(accountId, "-20.00", groceries, "WOOLWORTHS", LocalDate.of(2026, 7, 5));
+
+		ExpenseDashboard dashboard = dashboardService.expenseBreakdown();
+
+		assertThat(dashboard.totalIncome()).isEqualByComparingTo("3250.00");
+		assertThat(dashboard.incomeTransactionCount()).isEqualTo(2);
+		assertThat(dashboard.incomeCategories()).hasSize(2);
+		assertThat(dashboard.incomeCategories().get(0).categoryName()).isEqualTo("Income");
+		assertThat(dashboard.incomeCategories().get(0).amount()).isEqualByComparingTo("3200.00");
+		assertThat(dashboard.incomeCategories().get(1).categoryName()).isEqualTo("Uncategorised");
+		assertThat(dashboard.incomeCategories().get(1).amount()).isEqualByComparingTo("50.00");
+
+		assertThat(dashboard.totalExpenses()).isEqualByComparingTo("70.00");
+		assertThat(dashboard.categories()).hasSize(2);
+		assertThat(dashboard.categories().get(0).categoryName()).isEqualTo("Dining");
+		assertThat(dashboard.categories().get(0).amount()).isEqualByComparingTo("50.00");
+		assertThat(dashboard.categories().get(1).categoryName()).isEqualTo("Groceries");
+		assertThat(dashboard.categories().get(1).amount()).isEqualByComparingTo("20.00");
+	}
+
+	@Test
+	void listsExpenseTransactionsIncludingReimbursementsNewestFirst() {
 		AccountId accountId = everyday.id();
 		save(accountId, "-40.00", groceries, "WOOLWORTHS A", LocalDate.of(2026, 7, 10));
 		save(accountId, "-10.00", groceries, "WOOLWORTHS B", LocalDate.of(2026, 7, 11));
@@ -73,12 +106,43 @@ class DashboardServiceTest {
 
 		List<ExpenseTransaction> rows = dashboardService.expenseTransactions(groceries.id());
 
+		assertThat(rows).hasSize(3);
+		assertThat(rows.get(0).description()).isEqualTo("REFUND");
+		assertThat(rows.get(0).amount()).isEqualByComparingTo("5.00");
+		assertThat(rows.get(1).description()).isEqualTo("WOOLWORTHS B");
+		assertThat(rows.get(1).amount()).isEqualByComparingTo("-10.00");
+		assertThat(rows.get(2).description()).isEqualTo("WOOLWORTHS A");
+		assertThat(rows.get(2).amount()).isEqualByComparingTo("-40.00");
+	}
+
+	@Test
+	void listsIncomeTransactionsForUncategorisedCredits() {
+		AccountId accountId = everyday.id();
+		save(accountId, "+50.00", uncategorised, "FRIEND PAYBACK", LocalDate.of(2026, 7, 12));
+		save(accountId, "-20.00", uncategorised, "UNKNOWN SPEND", LocalDate.of(2026, 7, 11));
+
+		List<ExpenseTransaction> incomeRows = dashboardService.incomeTransactions(uncategorised.id());
+		List<ExpenseTransaction> expenseRows = dashboardService.expenseTransactions(uncategorised.id());
+
+		assertThat(incomeRows).hasSize(1);
+		assertThat(incomeRows.get(0).description()).isEqualTo("FRIEND PAYBACK");
+		assertThat(expenseRows).hasSize(1);
+		assertThat(expenseRows.get(0).description()).isEqualTo("UNKNOWN SPEND");
+	}
+
+	@Test
+	void listsIncomeTransactionsForCategoryNewestFirst() {
+		AccountId accountId = everyday.id();
+		save(accountId, "+3200.00", income, "PAYROLL A", LocalDate.of(2026, 7, 10));
+		save(accountId, "+100.00", income, "PAYROLL B", LocalDate.of(2026, 7, 12));
+		save(accountId, "-50.00", income, "CORRECTION", LocalDate.of(2026, 7, 11));
+
+		List<ExpenseTransaction> rows = dashboardService.incomeTransactions(income.id());
+
 		assertThat(rows).hasSize(2);
-		assertThat(rows.get(0).description()).isEqualTo("WOOLWORTHS B");
-		assertThat(rows.get(0).amount()).isEqualByComparingTo("10.00");
-		assertThat(rows.get(0).accountName()).isEqualTo("Everyday");
-		assertThat(rows.get(1).description()).isEqualTo("WOOLWORTHS A");
-		assertThat(rows.get(1).amount()).isEqualByComparingTo("40.00");
+		assertThat(rows.get(0).description()).isEqualTo("PAYROLL B");
+		assertThat(rows.get(0).amount()).isEqualByComparingTo("100.00");
+		assertThat(rows.get(1).description()).isEqualTo("PAYROLL A");
 	}
 
 	@Test
@@ -88,6 +152,9 @@ class DashboardServiceTest {
 		assertThat(dashboard.totalExpenses()).isEqualByComparingTo("0.00");
 		assertThat(dashboard.expenseTransactionCount()).isZero();
 		assertThat(dashboard.categories()).isEmpty();
+		assertThat(dashboard.totalIncome()).isEqualByComparingTo("0.00");
+		assertThat(dashboard.incomeTransactionCount()).isZero();
+		assertThat(dashboard.incomeCategories()).isEmpty();
 	}
 
 	private void save(

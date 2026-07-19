@@ -7,6 +7,9 @@ public class Category {
 	/** Internal account-to-account moves; excluded from expense totals. */
 	public static final String FUNDS_BETWEEN_ACCOUNTS_NAME = "Funds between accounts";
 
+	/** True income (salary, etc.). Other credits offset expenses instead. */
+	public static final String INCOME_NAME = "Income";
+
 	private final CategoryId id;
 	private final String name;
 
@@ -40,6 +43,18 @@ public class Category {
 
 	public boolean isUncategorised() {
 		return UNCATEGORISED_NAME.equalsIgnoreCase(name);
+	}
+
+	public boolean isIncome() {
+		return INCOME_NAME.equalsIgnoreCase(name);
+	}
+
+	/**
+	 * Credits in Income or Uncategorised count toward the income breakdown.
+	 * Credits filed under a named expense category offset that category instead.
+	 */
+	public boolean isIncomeCreditCategory() {
+		return isIncome() || isUncategorised();
 	}
 
 	public boolean isExcludedFromExpenses() {

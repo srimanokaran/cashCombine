@@ -9,7 +9,7 @@ function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">cashCombine</div>
+        <div className="brand">Cash Combine</div>
         <nav>
           <NavLink to="/" end>
             Import

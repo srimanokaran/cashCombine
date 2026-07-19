@@ -35,77 +35,90 @@ public class DashboardService {
 	}
 
 	/**
-	 * Aggregates money-out transactions (negative amounts) across all accounts by category.
-	 * Amounts are reported as positive spend totals. Categories marked excluded from expenses
-	 * (e.g. funds moved between own accounts) are omitted.
+	 * Aggregates cashflow across all accounts by category.
+	 * <p>
+	 * Credits in Income or Uncategorised count as income. Credits filed under a named expense
+	 * category (e.g. Entertainment) reduce that category's spend instead. Funds-between-accounts
+	 * moves are omitted from both sides.
 	 */
 	public ExpenseDashboard expenseBreakdown() {
-		Map<CategoryId, BigDecimal> totals = new HashMap<>();
-		Map<CategoryId, Integer> counts = new HashMap<>();
-		BigDecimal totalExpenses = BigDecimal.ZERO;
-		int expenseCount = 0;
-
-		Map<CategoryId, Category> categoriesById = new HashMap<>();
-		for (Category category : categoryRepository.findAll()) {
-			categoriesById.put(category.id(), category);
-		}
+		Map<CategoryId, Category> categoriesById = categoriesById();
+		Map<CategoryId, BigDecimal> expenseNets = new HashMap<>();
+		Map<CategoryId, Integer> expenseCounts = new HashMap<>();
+		Map<CategoryId, BigDecimal> incomeTotals = new HashMap<>();
+		Map<CategoryId, Integer> incomeCounts = new HashMap<>();
 
 		for (Transaction transaction : transactionRepository.findAll()) {
-			if (transaction.amount().signum() >= 0) {
-				continue;
-			}
 			Category category = categoriesById.get(transaction.categoryId());
-			if (category != null && category.isExcludedFromExpenses()) {
+			if (category == null || category.isExcludedFromExpenses()) {
 				continue;
 			}
-			BigDecimal spend = transaction.amount().abs();
-			CategoryId categoryId = transaction.categoryId();
-			totals.merge(categoryId, spend, BigDecimal::add);
-			counts.merge(categoryId, 1, Integer::sum);
-			totalExpenses = totalExpenses.add(spend);
-			expenseCount++;
+
+			if (category.isIncomeCreditCategory() && transaction.amount().signum() > 0) {
+				incomeTotals.merge(category.id(), transaction.amount(), BigDecimal::add);
+				incomeCounts.merge(category.id(), 1, Integer::sum);
+				continue;
+			}
+
+			if (category.isIncome()) {
+				// Ignore non-credit rows parked on the Income category.
+				continue;
+			}
+
+			// Expense-side: spend increases the net outflow; reimbursements reduce it.
+			expenseNets.merge(category.id(), transaction.amount(), BigDecimal::add);
+			expenseCounts.merge(category.id(), 1, Integer::sum);
 		}
 
-		Map<CategoryId, String> names = new HashMap<>();
-		for (Category category : categoriesById.values()) {
-			names.put(category.id(), category.name());
-		}
-
-		List<CategorySpend> categories = new ArrayList<>();
-		for (Map.Entry<CategoryId, BigDecimal> entry : totals.entrySet()) {
-			CategoryId categoryId = entry.getKey();
-			BigDecimal amount = entry.getValue().setScale(2, RoundingMode.HALF_UP);
-			BigDecimal percent = totalExpenses.signum() == 0
-					? BigDecimal.ZERO
-					: amount
-							.multiply(BigDecimal.valueOf(100))
-							.divide(totalExpenses, 1, RoundingMode.HALF_UP);
-			categories.add(new CategorySpend(
-					categoryId,
-					names.getOrDefault(categoryId, "Unknown"),
-					amount,
-					percent,
-					counts.getOrDefault(categoryId, 0)));
-		}
-
-		categories.sort(Comparator.comparing(CategorySpend::amount).reversed());
-
+		Breakdown expenses = toExpenseBreakdown(categoriesById, expenseNets, expenseCounts);
+		Breakdown income = toIncomeBreakdown(categoriesById, incomeTotals, incomeCounts);
 		return new ExpenseDashboard(
-				totalExpenses.setScale(2, RoundingMode.HALF_UP), expenseCount, List.copyOf(categories));
+				expenses.total(),
+				expenses.count(),
+				expenses.categories(),
+				income.total(),
+				income.count(),
+				income.categories());
 	}
 
 	/**
-	 * Money-out transactions in a category that contribute to the expenses breakdown.
-	 * Amounts are absolute spend totals, newest first.
+	 * Transactions in an expense-side category (spends and reimbursements), newest first.
+	 * Amounts keep their sign: negative = spend, positive = credit/reimbursement.
+	 * Uncategorised only lists spends — its credits appear under income.
 	 */
 	public List<ExpenseTransaction> expenseTransactions(CategoryId categoryId) {
 		Category category = categoryRepository
 				.findById(categoryId)
 				.orElseThrow(() -> new CategoryNotFoundException(categoryId));
-		if (category.isExcludedFromExpenses()) {
+		if (category.isExcludedFromExpenses() || category.isIncome()) {
 			return List.of();
 		}
+		if (category.isUncategorised()) {
+			return listTransactions(categoryId, ListMode.EXPENSE_ONLY);
+		}
+		return listTransactions(categoryId, ListMode.ALL);
+	}
 
+	/**
+	 * Credits in Income or Uncategorised, newest first.
+	 */
+	public List<ExpenseTransaction> incomeTransactions(CategoryId categoryId) {
+		Category category = categoryRepository
+				.findById(categoryId)
+				.orElseThrow(() -> new CategoryNotFoundException(categoryId));
+		if (!category.isIncomeCreditCategory()) {
+			return List.of();
+		}
+		return listTransactions(categoryId, ListMode.INCOME_ONLY);
+	}
+
+	private enum ListMode {
+		ALL,
+		INCOME_ONLY,
+		EXPENSE_ONLY
+	}
+
+	private List<ExpenseTransaction> listTransactions(CategoryId categoryId, ListMode mode) {
 		Map<AccountId, String> accountNames = new HashMap<>();
 		for (Account account : accountRepository.findAll()) {
 			accountNames.put(account.id(), account.name());
@@ -116,7 +129,11 @@ public class DashboardService {
 			if (!transaction.categoryId().equals(categoryId)) {
 				continue;
 			}
-			if (transaction.amount().signum() >= 0) {
+			int sign = transaction.amount().signum();
+			if (mode == ListMode.INCOME_ONLY && sign <= 0) {
+				continue;
+			}
+			if (mode == ListMode.EXPENSE_ONLY && sign >= 0) {
 				continue;
 			}
 			rows.add(new ExpenseTransaction(
@@ -124,7 +141,7 @@ public class DashboardService {
 					transaction.accountId(),
 					accountNames.getOrDefault(transaction.accountId(), "Unknown"),
 					transaction.date(),
-					transaction.amount().abs().setScale(2, RoundingMode.HALF_UP),
+					transaction.amount().setScale(2, RoundingMode.HALF_UP),
 					transaction.description()));
 		}
 
@@ -132,6 +149,103 @@ public class DashboardService {
 				.reversed()
 				.thenComparing(ExpenseTransaction::description));
 		return List.copyOf(rows);
+	}
+
+	private Breakdown toExpenseBreakdown(
+			Map<CategoryId, Category> categoriesById,
+			Map<CategoryId, BigDecimal> nets,
+			Map<CategoryId, Integer> counts) {
+		List<CategorySpend> categories = new ArrayList<>();
+		BigDecimal total = BigDecimal.ZERO;
+		int count = 0;
+
+		for (Map.Entry<CategoryId, BigDecimal> entry : nets.entrySet()) {
+			CategoryId categoryId = entry.getKey();
+			int categoryCount = counts.getOrDefault(categoryId, 0);
+			if (categoryCount == 0) {
+				continue;
+			}
+			// Ledger sum is negative when money went out overall. Credits-only categories
+			// still appear (at $0) so reimbursements remain visible and reassignable.
+			BigDecimal netSpend = entry.getValue().negate().max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+			Category category = categoriesById.get(categoryId);
+			categories.add(new CategorySpend(
+					categoryId,
+					category != null ? category.name() : "Unknown",
+					netSpend,
+					BigDecimal.ZERO,
+					categoryCount));
+			total = total.add(netSpend);
+			count += categoryCount;
+		}
+
+		for (int i = 0; i < categories.size(); i++) {
+			CategorySpend row = categories.get(i);
+			BigDecimal percent = total.signum() == 0
+					? BigDecimal.ZERO
+					: row.amount().multiply(BigDecimal.valueOf(100)).divide(total, 1, RoundingMode.HALF_UP);
+			categories.set(
+					i,
+					new CategorySpend(
+							row.categoryId(), row.categoryName(), row.amount(), percent, row.transactionCount()));
+		}
+
+		categories.sort(Comparator.comparing(CategorySpend::amount)
+				.reversed()
+				.thenComparing(CategorySpend::categoryName));
+		return new Breakdown(total.setScale(2, RoundingMode.HALF_UP), count, List.copyOf(categories));
+	}
+
+	private Breakdown toIncomeBreakdown(
+			Map<CategoryId, Category> categoriesById,
+			Map<CategoryId, BigDecimal> totals,
+			Map<CategoryId, Integer> counts) {
+		List<CategorySpend> categories = new ArrayList<>();
+		BigDecimal total = BigDecimal.ZERO;
+		int count = 0;
+
+		for (Map.Entry<CategoryId, BigDecimal> entry : totals.entrySet()) {
+			CategoryId categoryId = entry.getKey();
+			BigDecimal amount = entry.getValue().setScale(2, RoundingMode.HALF_UP);
+			if (amount.signum() <= 0) {
+				continue;
+			}
+			Category category = categoriesById.get(categoryId);
+			int categoryCount = counts.getOrDefault(categoryId, 0);
+			categories.add(new CategorySpend(
+					categoryId,
+					category != null ? category.name() : "Unknown",
+					amount,
+					BigDecimal.ZERO,
+					categoryCount));
+			total = total.add(amount);
+			count += categoryCount;
+		}
+
+		for (int i = 0; i < categories.size(); i++) {
+			CategorySpend row = categories.get(i);
+			BigDecimal percent = total.signum() == 0
+					? BigDecimal.ZERO
+					: row.amount().multiply(BigDecimal.valueOf(100)).divide(total, 1, RoundingMode.HALF_UP);
+			categories.set(
+					i,
+					new CategorySpend(
+							row.categoryId(), row.categoryName(), row.amount(), percent, row.transactionCount()));
+		}
+
+		categories.sort(Comparator.comparing(CategorySpend::amount).reversed());
+		return new Breakdown(total.setScale(2, RoundingMode.HALF_UP), count, List.copyOf(categories));
+	}
+
+	private Map<CategoryId, Category> categoriesById() {
+		Map<CategoryId, Category> categoriesById = new HashMap<>();
+		for (Category category : categoryRepository.findAll()) {
+			categoriesById.put(category.id(), category);
+		}
+		return categoriesById;
+	}
+
+	private record Breakdown(BigDecimal total, int count, List<CategorySpend> categories) {
 	}
 
 }

@@ -4,6 +4,9 @@ import { formatDate } from '../format'
 import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
 
 const BAR_COLORS = ['#7a73ff', '#2dd4bf', '#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399']
+const INCOME_BAR_COLORS = ['#34d399', '#2dd4bf', '#a3e635', '#38bdf8', '#fbbf24']
+
+type BreakdownSide = 'expense' | 'income'
 
 function formatMoney(value: number | string) {
   return Number(value).toLocaleString('en-AU', {
@@ -17,6 +20,7 @@ export function DashboardPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [expandedSide, setExpandedSide] = useState<BreakdownSide | null>(null)
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null)
   const [expandedTxs, setExpandedTxs] = useState<ExpenseTransaction[] | null>(null)
   const [expandedLoading, setExpandedLoading] = useState(false)
@@ -53,14 +57,22 @@ export function DashboardPage() {
     void loadDashboard()
   }, [loadDashboard])
 
-  async function loadExpandedTransactions(categoryId: string, options?: { quiet?: boolean }) {
+  async function loadExpandedTransactions(
+    side: BreakdownSide,
+    categoryId: string,
+    options?: { quiet?: boolean },
+  ) {
     const quiet = options?.quiet ?? false
     if (!quiet) {
       setExpandedLoading(true)
     }
     setExpandedError(null)
     try {
-      setExpandedTxs(await api.listExpenseTransactions(categoryId))
+      const txs =
+        side === 'expense'
+          ? await api.listExpenseTransactions(categoryId)
+          : await api.listIncomeTransactions(categoryId)
+      setExpandedTxs(txs)
     } catch (err) {
       setExpandedTxs(null)
       setExpandedError(err instanceof Error ? err.message : 'Failed to load transactions')
@@ -71,17 +83,19 @@ export function DashboardPage() {
     }
   }
 
-  async function onToggleCategory(row: CategorySpend) {
-    if (expandedCategoryId === row.categoryId) {
+  async function onToggleCategory(side: BreakdownSide, row: CategorySpend) {
+    if (expandedSide === side && expandedCategoryId === row.categoryId) {
+      setExpandedSide(null)
       setExpandedCategoryId(null)
       setExpandedTxs(null)
       setExpandedError(null)
       return
     }
 
+    setExpandedSide(side)
     setExpandedCategoryId(row.categoryId)
     setExpandedTxs(null)
-    await loadExpandedTransactions(row.categoryId)
+    await loadExpandedTransactions(side, row.categoryId)
   }
 
   async function onChangeCategory(transactionId: string, categoryId: string) {
@@ -91,19 +105,27 @@ export function DashboardPage() {
     try {
       await api.changeCategory(transactionId, categoryId)
       setReanalyseMessage('Category updated — a rule was saved for that description.')
-      const previousCategoryId = expandedCategoryId
       const nextDashboard = await loadDashboard({ quiet: true })
-      if (!previousCategoryId) {
+      if (!nextDashboard) {
         return
       }
-      // Category may have dropped off the breakdown once emptied.
-      const stillPresent = nextDashboard?.categories.some((row) => row.categoryId === previousCategoryId)
-      if (!stillPresent) {
-        setExpandedCategoryId(null)
-        setExpandedTxs(null)
+      const inIncome = nextDashboard.incomeCategories.some((row) => row.categoryId === categoryId)
+      const inExpense = nextDashboard.categories.some((row) => row.categoryId === categoryId)
+      if (inIncome) {
+        setExpandedSide('income')
+        setExpandedCategoryId(categoryId)
+        await loadExpandedTransactions('income', categoryId, { quiet: true })
         return
       }
-      await loadExpandedTransactions(previousCategoryId, { quiet: true })
+      if (inExpense) {
+        setExpandedSide('expense')
+        setExpandedCategoryId(categoryId)
+        await loadExpandedTransactions('expense', categoryId, { quiet: true })
+        return
+      }
+      setExpandedSide(null)
+      setExpandedCategoryId(null)
+      setExpandedTxs(null)
     } catch (err) {
       setExpandedError(err instanceof Error ? err.message : 'Failed to change category')
     } finally {
@@ -129,6 +151,7 @@ export function DashboardPage() {
         `Updated ${result.updated} of ${result.examined} transactions` +
           (result.skippedManual > 0 ? ` (${result.skippedManual} manual left unchanged)` : ''),
       )
+      setExpandedSide(null)
       setExpandedCategoryId(null)
       setExpandedTxs(null)
       await loadDashboard()
@@ -139,14 +162,18 @@ export function DashboardPage() {
     }
   }
 
+  const net =
+    dashboard == null ? 0 : Number(dashboard.totalIncome) - Number(dashboard.totalExpenses)
+
   return (
     <section className="page">
       <div className="page-heading">
         <div>
           <h1>Expenses</h1>
           <p className="lede">
-            Spending across all accounts, grouped by category. Click a category to see its transactions.
-            Changing a category also creates a rule for that description.
+            Spending and income across all accounts, grouped by category. Credits in Income or
+            Uncategorised show under income; put a refund or payback under an expense category
+            (e.g. Entertainment) to cancel that spend. Changing a category also creates a rule.
           </p>
         </div>
         <button type="button" onClick={() => void onReanalyse()} disabled={reanalysing || loading}>
@@ -166,118 +193,198 @@ export function DashboardPage() {
               <p className="summary-value">{formatMoney(dashboard.totalExpenses)}</p>
             </div>
             <div className="panel summary-card">
-              <p className="summary-label">Expense transactions</p>
-              <p className="summary-value">{dashboard.expenseTransactionCount}</p>
+              <p className="summary-label">Total income</p>
+              <p className="summary-value">{formatMoney(dashboard.totalIncome)}</p>
             </div>
             <div className="panel summary-card">
-              <p className="summary-label">Categories</p>
-              <p className="summary-value">{dashboard.categories.length}</p>
+              <p className="summary-label">Net</p>
+              <p className={`summary-value ${net < 0 ? 'negative' : net > 0 ? 'positive' : ''}`}>
+                {formatMoney(net)}
+              </p>
             </div>
           </div>
 
-          <div className="panel">
-            <h2>Breakdown by category</h2>
-            {dashboard.categories.length === 0 ? (
-              <p className="muted" style={{ margin: 0 }}>
-                No expenses yet. Import a CSV to see your spending mix.
-              </p>
-            ) : (
-              <ul className="spend-breakdown">
-                {dashboard.categories.map((row, index) => {
-                  const expanded = expandedCategoryId === row.categoryId
-                  return (
-                    <li key={row.categoryId} className={expanded ? 'spend-item expanded' : 'spend-item'}>
-                      <button
-                        type="button"
-                        className="spend-toggle"
-                        aria-expanded={expanded}
-                        onClick={() => void onToggleCategory(row)}
-                      >
-                        <div className="spend-row-top">
-                          <span className="spend-name">
-                            <span
-                              className="spend-dot"
-                              style={{ background: BAR_COLORS[index % BAR_COLORS.length] }}
-                            />
-                            {row.categoryName}
-                          </span>
-                          <span className="spend-amount">{formatMoney(row.amount)}</span>
-                        </div>
-                        <div className="spend-bar-track">
-                          <div
-                            className="spend-bar-fill"
-                            style={{
-                              width: `${Math.max(Number(row.percent), 1)}%`,
-                              background: BAR_COLORS[index % BAR_COLORS.length],
-                            }}
-                          />
-                        </div>
-                        <div className="spend-row-meta">
-                          <span>{Number(row.percent).toFixed(1)}%</span>
-                          <span>
-                            {row.transactionCount} transaction
-                            {row.transactionCount === 1 ? '' : 's'}
-                            {expanded ? ' · hide' : ' · view'}
-                          </span>
-                        </div>
-                      </button>
+          <BreakdownPanel
+            title="Spending by category"
+            emptyMessage="No expenses yet. Import a CSV to see your spending mix."
+            side="expense"
+            rows={dashboard.categories}
+            barColors={BAR_COLORS}
+            expandedSide={expandedSide}
+            expandedCategoryId={expandedCategoryId}
+            expandedTxs={expandedTxs}
+            expandedLoading={expandedLoading}
+            expandedError={expandedError}
+            categories={categories}
+            changingCategoryId={changingCategoryId}
+            onToggleCategory={onToggleCategory}
+            onChangeCategory={onChangeCategory}
+          />
 
-                      {expanded && (
-                        <div className="spend-detail">
-                          {expandedLoading && <p className="muted">Loading transactions…</p>}
-                          {expandedError && <p className="error">{expandedError}</p>}
-                          {!expandedLoading && !expandedError && expandedTxs && expandedTxs.length === 0 && (
-                            <p className="muted">No transactions in this category.</p>
-                          )}
-                          {!expandedLoading && !expandedError && expandedTxs && expandedTxs.length > 0 && (
-                            <div className="table-wrap">
-                              <table>
-                                <thead>
-                                  <tr>
-                                    <th>Date</th>
-                                    <th>Account</th>
-                                    <th>Description</th>
-                                    <th>Amount</th>
-                                    <th>Category</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {expandedTxs.map((tx) => (
-                                    <tr key={tx.id}>
-                                      <td>{formatDate(tx.date)}</td>
-                                      <td>{tx.accountName}</td>
-                                      <td>{tx.description}</td>
-                                      <td className="negative">{formatMoney(tx.amount)}</td>
-                                      <td>
-                                        <select
-                                          value={row.categoryId}
-                                          disabled={changingCategoryId === tx.id}
-                                          onChange={(e) => void onChangeCategory(tx.id, e.target.value)}
-                                          aria-label={`Category for ${tx.description}`}
-                                        >
-                                          {categories.map((category) => (
-                                            <option key={category.id} value={category.id}>
-                                              {category.name}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
+          <BreakdownPanel
+            title="Income by category"
+            emptyMessage="No income yet. Credits in Income or Uncategorised show here."
+            side="income"
+            rows={dashboard.incomeCategories}
+            barColors={INCOME_BAR_COLORS}
+            expandedSide={expandedSide}
+            expandedCategoryId={expandedCategoryId}
+            expandedTxs={expandedTxs}
+            expandedLoading={expandedLoading}
+            expandedError={expandedError}
+            categories={categories}
+            changingCategoryId={changingCategoryId}
+            onToggleCategory={onToggleCategory}
+            onChangeCategory={onChangeCategory}
+          />
         </>
       )}
     </section>
+  )
+}
+
+function BreakdownPanel({
+  title,
+  emptyMessage,
+  side,
+  rows,
+  barColors,
+  expandedSide,
+  expandedCategoryId,
+  expandedTxs,
+  expandedLoading,
+  expandedError,
+  categories,
+  changingCategoryId,
+  onToggleCategory,
+  onChangeCategory,
+}: {
+  title: string
+  emptyMessage: string
+  side: BreakdownSide
+  rows: CategorySpend[]
+  barColors: string[]
+  expandedSide: BreakdownSide | null
+  expandedCategoryId: string | null
+  expandedTxs: ExpenseTransaction[] | null
+  expandedLoading: boolean
+  expandedError: string | null
+  categories: Category[]
+  changingCategoryId: string | null
+  onToggleCategory: (side: BreakdownSide, row: CategorySpend) => void | Promise<void>
+  onChangeCategory: (transactionId: string, categoryId: string) => void | Promise<void>
+}) {
+  return (
+    <div className="panel">
+      <h2>{title}</h2>
+      {rows.length === 0 ? (
+        <p className="muted" style={{ margin: 0 }}>
+          {emptyMessage}
+        </p>
+      ) : (
+        <ul className="spend-breakdown">
+          {rows.map((row, index) => {
+            const expanded = expandedSide === side && expandedCategoryId === row.categoryId
+            return (
+              <li key={`${side}-${row.categoryId}`} className={expanded ? 'spend-item expanded' : 'spend-item'}>
+                <button
+                  type="button"
+                  className="spend-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => void onToggleCategory(side, row)}
+                >
+                  <div className="spend-row-top">
+                    <span className="spend-name">
+                      <span
+                        className="spend-dot"
+                        style={{ background: barColors[index % barColors.length] }}
+                      />
+                      {row.categoryName}
+                    </span>
+                    <span className="spend-amount">{formatMoney(row.amount)}</span>
+                  </div>
+                  <div className="spend-bar-track">
+                    <div
+                      className="spend-bar-fill"
+                      style={{
+                        width: `${Math.max(Number(row.percent), 1)}%`,
+                        background: barColors[index % barColors.length],
+                      }}
+                    />
+                  </div>
+                  <div className="spend-row-meta">
+                    <span>{Number(row.percent).toFixed(1)}%</span>
+                    <span>
+                      {row.transactionCount} transaction
+                      {row.transactionCount === 1 ? '' : 's'}
+                      {expanded ? ' · hide' : ' · view'}
+                    </span>
+                  </div>
+                </button>
+
+                {expanded && (
+                  <div className="spend-detail">
+                    {expandedLoading && <p className="muted">Loading transactions…</p>}
+                    {expandedError && <p className="error">{expandedError}</p>}
+                    {!expandedLoading && !expandedError && expandedTxs && expandedTxs.length === 0 && (
+                      <p className="muted">No transactions in this category.</p>
+                    )}
+                    {!expandedLoading && !expandedError && expandedTxs && expandedTxs.length > 0 && (
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Account</th>
+                              <th>Description</th>
+                              <th>Amount</th>
+                              <th>Category</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expandedTxs.map((tx) => (
+                              <tr key={tx.id}>
+                                <td>{formatDate(tx.date)}</td>
+                                <td>{tx.accountName}</td>
+                                <td>{tx.description}</td>
+                                <td
+                                  className={
+                                    Number(tx.amount) < 0
+                                      ? 'negative'
+                                      : Number(tx.amount) > 0
+                                        ? 'positive'
+                                        : undefined
+                                  }
+                                >
+                                  {formatMoney(tx.amount)}
+                                </td>
+                                <td>
+                                  <select
+                                    value={row.categoryId}
+                                    disabled={changingCategoryId === tx.id}
+                                    onChange={(e) => void onChangeCategory(tx.id, e.target.value)}
+                                    aria-label={`Category for ${tx.description}`}
+                                  >
+                                    {categories.map((category) => (
+                                      <option key={category.id} value={category.id}>
+                                        {category.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }

@@ -94,6 +94,8 @@ export const api = {
   getExpenseDashboard: () => request<ExpenseDashboard>('/api/dashboard/expenses'),
   listExpenseTransactions: (categoryId: string) =>
     request<ExpenseTransaction[]>(`/api/dashboard/expenses/categories/${categoryId}/transactions`),
+  listIncomeTransactions: (categoryId: string) =>
+    request<ExpenseTransaction[]>(`/api/dashboard/income/categories/${categoryId}/transactions`),
   reanalyseExpenses: () =>
     request<CategoryReanalysisResult>('/api/dashboard/expenses/reanalyse', { method: 'POST' }),
 }

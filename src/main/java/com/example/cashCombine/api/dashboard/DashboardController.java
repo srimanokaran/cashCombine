@@ -36,6 +36,13 @@ public class DashboardController {
 				.toList();
 	}
 
+	@GetMapping("/income/categories/{categoryId}/transactions")
+	public List<ExpenseTransactionResponse> incomeTransactions(@PathVariable UUID categoryId) {
+		return dashboardService.incomeTransactions(new CategoryId(categoryId)).stream()
+				.map(ExpenseTransactionResponse::from)
+				.toList();
+	}
+
 	@PostMapping("/expenses/reanalyse")
 	public CategoryReanalysisResponse reanalyse() {
 		return CategoryReanalysisResponse.from(categoryReanalysisService.reanalyse());

@@ -43,7 +43,7 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 			"Credit cards",
 			"Rent",
 			Category.FUNDS_BETWEEN_ACCOUNTS_NAME,
-			"Income");
+			Category.INCOME_NAME);
 
 	/**
 	 * Broad / broken patterns previously seeded.
@@ -233,8 +233,8 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("Qantas Credit Cards", "Credit cards");
 		rules.put("Transfer To Landlord", "Rent");
 		rules.put("CommBank App Savings", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
-		rules.put("PAYROLL", "Income");
-		rules.put("Direct Credit", "Income");
+		rules.put("PAYROLL", Category.INCOME_NAME);
+		rules.put("Direct Credit", Category.INCOME_NAME);
 		return Map.copyOf(rules);
 	}
 
