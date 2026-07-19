@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
+import { AnimatedExpand } from '../components/AnimatedExpand'
+import { CategoryPicker } from '../components/CategoryPicker'
 import { formatDate, formatMoney } from '../format'
 import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
 
@@ -276,126 +278,191 @@ function BreakdownPanel({
         </p>
       ) : (
         <ul className="spend-breakdown">
-          {rows.map((row, index) => {
-            const expanded = expandedSide === side && expandedCategoryId === row.categoryId
-            return (
-              <li key={`${side}-${row.categoryId}`} className={expanded ? 'spend-item expanded' : 'spend-item'}>
-                <button
-                  type="button"
-                  className="spend-toggle"
-                  aria-expanded={expanded}
-                  onClick={() => void onToggleCategory(side, row)}
-                >
-                  <div className="spend-row-top">
-                    <span className="spend-name">
-                      <span
-                        className="spend-dot"
-                        style={{ background: barColors[index % barColors.length] }}
-                      />
-                      {row.categoryName}
-                    </span>
-                    <span
-                      className={
-                        Number(row.amount) < 0 ? 'spend-amount positive' : 'spend-amount'
-                      }
-                    >
-                      {Number(row.amount) < 0
-                        ? `${formatMoney(Math.abs(Number(row.amount)))} profit`
-                        : formatMoney(row.amount)}
-                    </span>
-                  </div>
-                  <div className="spend-bar-track">
-                    <div
-                      className="spend-bar-fill"
-                      style={{
-                        width: `${Math.max(
-                          Number(row.amount) < 0
-                            ? Math.abs(Number(row.percent)) || Math.min(Math.abs(Number(row.amount)), 100)
-                            : Number(row.percent),
-                          Number(row.amount) === 0 ? 0 : 1,
-                        )}%`,
-                        background:
-                          Number(row.amount) < 0
-                            ? '#34d399'
-                            : barColors[index % barColors.length],
-                      }}
-                    />
-                  </div>
-                  <div className="spend-row-meta">
-                    <span>
-                      {Number(row.amount) < 0 ? 'surplus' : `${Number(row.percent).toFixed(1)}%`}
-                    </span>
-                    <span>
-                      {row.transactionCount} transaction
-                      {row.transactionCount === 1 ? '' : 's'}
-                      {expanded ? ' · hide' : ' · view'}
-                    </span>
-                  </div>
-                </button>
-
-                {expanded && (
-                  <div className="spend-detail">
-                    {expandedLoading && <p className="muted">Loading transactions…</p>}
-                    {expandedError && <p className="error">{expandedError}</p>}
-                    {!expandedLoading && !expandedError && expandedTxs && expandedTxs.length === 0 && (
-                      <p className="muted">No transactions in this category.</p>
-                    )}
-                    {!expandedLoading && !expandedError && expandedTxs && expandedTxs.length > 0 && (
-                      <div className="table-wrap">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Account</th>
-                              <th>Description</th>
-                              <th>Amount</th>
-                              <th>Category</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {expandedTxs.map((tx) => (
-                              <tr key={tx.id}>
-                                <td>{formatDate(tx.date)}</td>
-                                <td>{tx.accountName}</td>
-                                <td>{tx.description}</td>
-                                <td
-                                  className={
-                                    Number(tx.amount) < 0
-                                      ? 'negative'
-                                      : Number(tx.amount) > 0
-                                        ? 'positive'
-                                        : undefined
-                                  }
-                                >
-                                  {formatMoney(tx.amount)}
-                                </td>
-                                <td>
-                                  <select
-                                    value={row.categoryId}
-                                    disabled={changingCategoryId === tx.id}
-                                    onChange={(e) => void onChangeCategory(tx.id, e.target.value)}
-                                    aria-label={`Category for ${tx.description}`}
-                                  >
-                                    {categories.map((category) => (
-                                      <option key={category.id} value={category.id}>
-                                        {category.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </li>
-            )
-          })}
+          {rows.map((row, index) => (
+            <SpendCategoryItem
+              key={`${side}-${row.categoryId}`}
+              side={side}
+              row={row}
+              index={index}
+              barColors={barColors}
+              expanded={expandedSide === side && expandedCategoryId === row.categoryId}
+              expandedTxs={expandedTxs}
+              expandedLoading={expandedLoading}
+              expandedError={expandedError}
+              categories={categories}
+              changingCategoryId={changingCategoryId}
+              onToggleCategory={onToggleCategory}
+              onChangeCategory={onChangeCategory}
+            />
+          ))}
         </ul>
       )}
     </div>
   )
 }
+
+function SpendCategoryItem({
+  side,
+  row,
+  index,
+  barColors,
+  expanded,
+  expandedTxs,
+  expandedLoading,
+  expandedError,
+  categories,
+  changingCategoryId,
+  onToggleCategory,
+  onChangeCategory,
+}: {
+  side: BreakdownSide
+  row: CategorySpend
+  index: number
+  barColors: string[]
+  expanded: boolean
+  expandedTxs: ExpenseTransaction[] | null
+  expandedLoading: boolean
+  expandedError: string | null
+  categories: Category[]
+  changingCategoryId: string | null
+  onToggleCategory: (side: BreakdownSide, row: CategorySpend) => void | Promise<void>
+  onChangeCategory: (transactionId: string, categoryId: string) => void | Promise<void>
+}) {
+  const [cachedTxs, setCachedTxs] = useState<ExpenseTransaction[] | null>(null)
+  const [cachedLoading, setCachedLoading] = useState(false)
+  const [cachedError, setCachedError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!expanded) {
+      return
+    }
+    setCachedTxs(expandedTxs)
+    setCachedLoading(expandedLoading)
+    setCachedError(expandedError)
+  }, [expanded, expandedTxs, expandedLoading, expandedError])
+
+  const detailTxs = expanded ? expandedTxs : cachedTxs
+  const detailLoading = expanded ? expandedLoading : cachedLoading
+  const detailError = expanded ? expandedError : cachedError
+
+  return (
+    <li className={expanded ? 'spend-item expanded' : 'spend-item'}>
+      <button
+        type="button"
+        className="spend-toggle"
+        aria-expanded={expanded}
+        onClick={() => void onToggleCategory(side, row)}
+      >
+        <div className="spend-row-top">
+          <span className="spend-name">
+            <span
+              className="spend-dot"
+              style={{ background: barColors[index % barColors.length] }}
+            />
+            {row.categoryName}
+          </span>
+          <span className="spend-row-trailing">
+            <span className={Number(row.amount) < 0 ? 'spend-amount positive' : 'spend-amount'}>
+              {Number(row.amount) < 0
+                ? `${formatMoney(Math.abs(Number(row.amount)))} profit`
+                : formatMoney(row.amount)}
+            </span>
+            <span className="spend-chevron" aria-hidden>
+              ▾
+            </span>
+          </span>
+        </div>
+        <div className="spend-bar-track">
+          <div
+            className="spend-bar-fill"
+            style={{
+              width: `${Math.max(
+                Number(row.amount) < 0
+                  ? Math.abs(Number(row.percent)) || Math.min(Math.abs(Number(row.amount)), 100)
+                  : Number(row.percent),
+                Number(row.amount) === 0 ? 0 : 1,
+              )}%`,
+              background:
+                Number(row.amount) < 0 ? '#34d399' : barColors[index % barColors.length],
+            }}
+          />
+        </div>
+        <div className="spend-row-meta">
+          <span>
+            {Number(row.amount) < 0 ? 'surplus' : `${Number(row.percent).toFixed(1)}%`}
+          </span>
+          <span>
+            {row.transactionCount} transaction
+            {row.transactionCount === 1 ? '' : 's'}
+            {expanded ? ' · hide' : ' · view'}
+          </span>
+        </div>
+      </button>
+
+      <AnimatedExpand open={expanded}>
+        <div className="spend-detail">
+          {detailLoading && (
+            <div className="spend-detail-loading" aria-live="polite">
+              <div className="spend-skeleton-row" />
+              <div className="spend-skeleton-row" />
+              <div className="spend-skeleton-row short" />
+            </div>
+          )}
+          {detailError && <p className="error">{detailError}</p>}
+          {!detailLoading && !detailError && detailTxs && detailTxs.length === 0 && (
+            <p className="muted">No transactions in this category.</p>
+          )}
+          {!detailLoading && !detailError && detailTxs && detailTxs.length > 0 && (
+            <div className="table-wrap spend-detail-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailTxs.map((tx, txIndex) => (
+                    <tr
+                      key={tx.id}
+                      className="spend-detail-row"
+                      style={{ animationDelay: `${Math.min(txIndex, 8) * 30}ms` }}
+                    >
+                      <td>{formatDate(tx.date)}</td>
+                      <td>{tx.accountName}</td>
+                      <td>{tx.description}</td>
+                      <td
+                        className={
+                          Number(tx.amount) < 0
+                            ? 'negative'
+                            : Number(tx.amount) > 0
+                              ? 'positive'
+                              : undefined
+                        }
+                      >
+                        {formatMoney(tx.amount)}
+                      </td>
+                      <td>
+                        <CategoryPicker
+                          categories={categories}
+                          value={row.categoryId}
+                          disabled={changingCategoryId === tx.id}
+                          ariaLabel={`Category for ${tx.description}`}
+                          onChange={(categoryId) => onChangeCategory(tx.id, categoryId)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </AnimatedExpand>
+    </li>
+  )
+}
+

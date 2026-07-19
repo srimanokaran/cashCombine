@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { CategoryPicker } from '../components/CategoryPicker'
 import { formatDate } from '../format'
 import type { Account, Category, ImportBatch, Transaction } from '../types'
 
@@ -74,10 +75,6 @@ export function AccountDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete import')
     }
-  }
-
-  function categoryName(categoryId: string) {
-    return categories.find((c) => c.id === categoryId)?.name ?? categoryId
   }
 
   if (loading) {
@@ -159,20 +156,14 @@ export function AccountDetailPage() {
                   </td>
                   <td>{tx.description}</td>
                   <td>
-                    <select
+                    <CategoryPicker
+                      categories={categories}
                       value={tx.categoryId}
-                      onChange={(e) => void onChangeCategory(tx.id, e.target.value)}
-                      aria-label={`Category for ${tx.description}`}
-                    >
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                      ariaLabel={`Category for ${tx.description}`}
+                      onChange={(categoryId) => onChangeCategory(tx.id, categoryId)}
+                    />
                     <span className="meta">
                       {tx.categoryAssignmentSource === 'MANUAL' ? 'manual' : 'rule'}
-                      {` · ${categoryName(tx.categoryId)}`}
                     </span>
                   </td>
                 </tr>
