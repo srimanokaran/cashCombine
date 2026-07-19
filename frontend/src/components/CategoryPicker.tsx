@@ -108,10 +108,11 @@ export function CategoryPicker({
       }
     }
 
-    document.addEventListener('mousedown', onPointerDown)
+    // Use click (not mousedown) so option selection isn't cancelled by the dismiss handler.
+    document.addEventListener('click', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('click', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [open])
@@ -123,7 +124,6 @@ export function CategoryPicker({
 
   function choose(categoryId: string) {
     close()
-    triggerRef.current?.focus()
     if (categoryId !== value) {
       void onChange(categoryId)
     }
@@ -199,7 +199,12 @@ export function CategoryPicker({
                       aria-selected={isSelected}
                       className={`category-picker-option${isSelected ? ' selected' : ''}${isActive ? ' active' : ''}`}
                       onMouseEnter={() => setActiveIndex(index)}
-                      onClick={() => choose(category.id)}
+                      onMouseDown={(event) => {
+                        // Select on mousedown so the choice commits before any dismiss handlers.
+                        event.preventDefault()
+                        event.stopPropagation()
+                        choose(category.id)
+                      }}
                     >
                       <span>{category.name}</span>
                       {isSelected && <span className="category-picker-check" aria-hidden>✓</span>}

@@ -94,29 +94,27 @@ export function DashboardPage() {
   }
 
   async function onChangeCategory(transactionId: string, categoryId: string) {
+    const currentSide = expandedSide
+    const currentCategoryId = expandedCategoryId
     setChangingCategoryId(transactionId)
     setExpandedError(null)
     setError(null)
     try {
       await api.changeCategory(transactionId, categoryId)
       setReanalyseMessage('Category updated — a rule was saved for that description.')
+      // Keep the current category open; only refresh its list (transaction leaves this view).
+      setExpandedTxs((prev) => prev?.filter((tx) => tx.id !== transactionId) ?? null)
       const nextDashboard = await loadDashboard({ quiet: true })
       if (!nextDashboard) {
         return
       }
-      const inIncome = nextDashboard.incomeCategories.some((row) => row.categoryId === categoryId)
-      const inExpense = nextDashboard.categories.some((row) => row.categoryId === categoryId)
-      if (inIncome) {
-        setExpandedSide('income')
-        setExpandedCategoryId(categoryId)
-        await loadExpandedTransactions('income', categoryId, { quiet: true })
-        return
-      }
-      if (inExpense) {
-        setExpandedSide('expense')
-        setExpandedCategoryId(categoryId)
-        await loadExpandedTransactions('expense', categoryId, { quiet: true })
-        return
+      if (currentSide && currentCategoryId) {
+        const rows =
+          currentSide === 'income' ? nextDashboard.incomeCategories : nextDashboard.categories
+        if (rows.some((row) => row.categoryId === currentCategoryId)) {
+          await loadExpandedTransactions(currentSide, currentCategoryId, { quiet: true })
+          return
+        }
       }
       setExpandedSide(null)
       setExpandedCategoryId(null)
