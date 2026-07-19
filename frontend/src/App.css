@@ -442,6 +442,91 @@ td .meta {
   margin-top: 1rem;
 }
 
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.chart-grid .panel {
+  margin-top: 0;
+}
+
+.chart-grid .panel + .panel {
+  margin-top: 0;
+}
+
+.pie-chart {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.pie-visual {
+  position: relative;
+  width: min(100%, 220px);
+  margin: 0 auto;
+}
+
+.pie-visual svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pie-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  gap: 0.15rem;
+}
+
+.pie-center-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--navy-muted);
+}
+
+.pie-center-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.pie-empty {
+  margin: 0;
+}
+
+.pie-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pie-legend li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+}
+
+.pie-legend-name {
+  font-weight: 600;
+  color: #fff;
+}
+
+.pie-legend-meta {
+  color: var(--navy-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .summary-card {
   display: flex;
   flex-direction: column;
@@ -574,6 +659,10 @@ td .meta {
   }
 
   .dashboard-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-grid {
     grid-template-columns: 1fr;
   }
 

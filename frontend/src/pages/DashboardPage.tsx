@@ -1,19 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
-import { formatDate } from '../format'
+import { formatDate, formatMoney } from '../format'
 import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
 
 const BAR_COLORS = ['#7a73ff', '#2dd4bf', '#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399']
 const INCOME_BAR_COLORS = ['#34d399', '#2dd4bf', '#a3e635', '#38bdf8', '#fbbf24']
 
 type BreakdownSide = 'expense' | 'income'
-
-function formatMoney(value: number | string) {
-  return Number(value).toLocaleString('en-AU', {
-    style: 'currency',
-    currency: 'AUD',
-  })
-}
 
 export function DashboardPage() {
   const [dashboard, setDashboard] = useState<ExpenseDashboard | null>(null)
