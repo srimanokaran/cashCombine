@@ -97,6 +97,25 @@ class DashboardServiceTest {
 	}
 
 	@Test
+	void showsCategoryProfitWhenCreditsExceedSpend() {
+		AccountId accountId = everyday.id();
+		Category entertainment = categoryRepository.save(Category.create("Entertainment"));
+		save(accountId, "-15.26", entertainment, "MOVIE", LocalDate.of(2026, 7, 10));
+		save(accountId, "+42.76", entertainment, "FRIEND PAYBACK", LocalDate.of(2026, 7, 11));
+		save(accountId, "-50.00", groceries, "WOOLWORTHS", LocalDate.of(2026, 7, 9));
+
+		ExpenseDashboard dashboard = dashboardService.expenseBreakdown();
+
+		assertThat(dashboard.categories()).hasSize(2);
+		assertThat(dashboard.categories().get(0).categoryName()).isEqualTo("Groceries");
+		assertThat(dashboard.categories().get(0).amount()).isEqualByComparingTo("50.00");
+		assertThat(dashboard.categories().get(1).categoryName()).isEqualTo("Entertainment");
+		assertThat(dashboard.categories().get(1).amount()).isEqualByComparingTo("-27.50");
+		// Entertainment profit offsets total spent: 50 - 27.50 = 22.50
+		assertThat(dashboard.totalExpenses()).isEqualByComparingTo("22.50");
+	}
+
+	@Test
 	void listsExpenseTransactionsIncludingReimbursementsNewestFirst() {
 		AccountId accountId = everyday.id();
 		save(accountId, "-40.00", groceries, "WOOLWORTHS A", LocalDate.of(2026, 7, 10));

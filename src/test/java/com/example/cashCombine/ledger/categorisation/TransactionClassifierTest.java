@@ -65,4 +65,17 @@ class TransactionClassifierTest {
 				.isEqualTo(uncategorised.id());
 	}
 
+	@Test
+	void classifiesIngDirectCreditAsFundsBetweenAccountsNotIncome() {
+		Category funds = Category.create(Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
+		Category income = Category.create(Category.INCOME_NAME);
+		ruleRepository.save(ClassificationRule.create(" ING ", funds.id()));
+		ruleRepository.save(ClassificationRule.create("Direct Credit", income.id()));
+
+		assertThat(classifier.classify("Direct Credit 000000 ING 000000000 0000000"))
+				.isEqualTo(funds.id());
+		assertThat(classifier.classify("KMART SHOPPING CENTRE")).isEqualTo(uncategorised.id());
+		assertThat(classifier.classify("Direct Credit ACME PAYROLL")).isEqualTo(income.id());
+	}
+
 }

@@ -156,7 +156,8 @@ public class DashboardService {
 			Map<CategoryId, BigDecimal> nets,
 			Map<CategoryId, Integer> counts) {
 		List<CategorySpend> categories = new ArrayList<>();
-		BigDecimal total = BigDecimal.ZERO;
+		BigDecimal signedTotal = BigDecimal.ZERO;
+		BigDecimal positiveTotal = BigDecimal.ZERO;
 		int count = 0;
 
 		for (Map.Entry<CategoryId, BigDecimal> entry : nets.entrySet()) {
@@ -165,9 +166,9 @@ public class DashboardService {
 			if (categoryCount == 0) {
 				continue;
 			}
-			// Ledger sum is negative when money went out overall. Credits-only categories
-			// still appear (at $0) so reimbursements remain visible and reassignable.
-			BigDecimal netSpend = entry.getValue().negate().max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+			// Ledger sum is negative when money went out. Negating gives net spend;
+			// a negative result means the category is in profit (credits > spends).
+			BigDecimal netSpend = entry.getValue().negate().setScale(2, RoundingMode.HALF_UP);
 			Category category = categoriesById.get(categoryId);
 			categories.add(new CategorySpend(
 					categoryId,
@@ -175,15 +176,21 @@ public class DashboardService {
 					netSpend,
 					BigDecimal.ZERO,
 					categoryCount));
-			total = total.add(netSpend);
+			signedTotal = signedTotal.add(netSpend);
+			if (netSpend.signum() > 0) {
+				positiveTotal = positiveTotal.add(netSpend);
+			}
 			count += categoryCount;
 		}
 
 		for (int i = 0; i < categories.size(); i++) {
 			CategorySpend row = categories.get(i);
-			BigDecimal percent = total.signum() == 0
-					? BigDecimal.ZERO
-					: row.amount().multiply(BigDecimal.valueOf(100)).divide(total, 1, RoundingMode.HALF_UP);
+			BigDecimal percent = BigDecimal.ZERO;
+			if (positiveTotal.signum() > 0 && row.amount().signum() > 0) {
+				percent = row.amount()
+						.multiply(BigDecimal.valueOf(100))
+						.divide(positiveTotal, 1, RoundingMode.HALF_UP);
+			}
 			categories.set(
 					i,
 					new CategorySpend(
@@ -193,7 +200,8 @@ public class DashboardService {
 		categories.sort(Comparator.comparing(CategorySpend::amount)
 				.reversed()
 				.thenComparing(CategorySpend::categoryName));
-		return new Breakdown(total.setScale(2, RoundingMode.HALF_UP), count, List.copyOf(categories));
+		BigDecimal total = signedTotal.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+		return new Breakdown(total, count, List.copyOf(categories));
 	}
 
 	private Breakdown toIncomeBreakdown(

@@ -49,8 +49,10 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 	 * Broad / broken patterns previously seeded.
 	 * - transfer to/from: too blunt
 	 * - "BP": was "BP " but trim() stripped the space, so it matched BPAY credit-card bills
+	 * - "direct credit": caught ING→CommBank transfers as income
 	 */
-	private static final Set<String> OBSOLETE_PATTERNS = Set.of("transfer to", "transfer from", "bp");
+	private static final Set<String> OBSOLETE_PATTERNS =
+			Set.of("transfer to", "transfer from", "bp", "direct credit");
 
 	/** pattern → category name */
 	private static final Map<String, String> RULES = seedRules();
@@ -233,8 +235,9 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("Qantas Credit Cards", "Credit cards");
 		rules.put("Transfer To Landlord", "Rent");
 		rules.put("CommBank App Savings", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
+		// Spaces avoid matching substrings like SHOPPING.
+		rules.put(" ING ", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		rules.put("PAYROLL", Category.INCOME_NAME);
-		rules.put("Direct Credit", Category.INCOME_NAME);
 		return Map.copyOf(rules);
 	}
 

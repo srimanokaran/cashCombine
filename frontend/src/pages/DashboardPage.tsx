@@ -301,19 +301,37 @@ function BreakdownPanel({
                       />
                       {row.categoryName}
                     </span>
-                    <span className="spend-amount">{formatMoney(row.amount)}</span>
+                    <span
+                      className={
+                        Number(row.amount) < 0 ? 'spend-amount positive' : 'spend-amount'
+                      }
+                    >
+                      {Number(row.amount) < 0
+                        ? `${formatMoney(Math.abs(Number(row.amount)))} profit`
+                        : formatMoney(row.amount)}
+                    </span>
                   </div>
                   <div className="spend-bar-track">
                     <div
                       className="spend-bar-fill"
                       style={{
-                        width: `${Math.max(Number(row.percent), 1)}%`,
-                        background: barColors[index % barColors.length],
+                        width: `${Math.max(
+                          Number(row.amount) < 0
+                            ? Math.abs(Number(row.percent)) || Math.min(Math.abs(Number(row.amount)), 100)
+                            : Number(row.percent),
+                          Number(row.amount) === 0 ? 0 : 1,
+                        )}%`,
+                        background:
+                          Number(row.amount) < 0
+                            ? '#34d399'
+                            : barColors[index % barColors.length],
                       }}
                     />
                   </div>
                   <div className="spend-row-meta">
-                    <span>{Number(row.percent).toFixed(1)}%</span>
+                    <span>
+                      {Number(row.amount) < 0 ? 'surplus' : `${Number(row.percent).toFixed(1)}%`}
+                    </span>
                     <span>
                       {row.transactionCount} transaction
                       {row.transactionCount === 1 ? '' : 's'}
