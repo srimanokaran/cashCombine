@@ -4,10 +4,13 @@ import com.example.cashCombine.ledger.categorisation.Category;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
+import com.example.cashCombine.ledger.transactions.Transaction;
+import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -33,11 +36,10 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 			"Dining",
 			"Transport",
 			"Fuel",
-			"Streaming",
+			"Subscription",
 			"Shopping",
 			"Utilities",
 			"Health",
-			"Home",
 			"Credit cards",
 			"Rent",
 			Category.FUNDS_BETWEEN_ACCOUNTS_NAME,
@@ -55,16 +57,23 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 
 	private final CategoryRepository categoryRepository;
 	private final ClassificationRuleRepository ruleRepository;
+	private final TransactionRepository transactionRepository;
 
 	public ClassificationSeedRunner(
-			CategoryRepository categoryRepository, ClassificationRuleRepository ruleRepository) {
+			CategoryRepository categoryRepository,
+			ClassificationRuleRepository ruleRepository,
+			TransactionRepository transactionRepository) {
 		this.categoryRepository = categoryRepository;
 		this.ruleRepository = ruleRepository;
+		this.transactionRepository = transactionRepository;
 	}
 
 	@Override
 	@Transactional
 	public void run(ApplicationArguments args) {
+		renameStreamingToSubscription();
+		mergeHomeIntoUtilities();
+
 		Map<String, Category> categoriesByName = new LinkedHashMap<>();
 		for (String name : CATEGORIES) {
 			Category category = categoryRepository
@@ -116,6 +125,61 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		}
 	}
 
+	private void renameStreamingToSubscription() {
+		var streaming = categoryRepository.findByName("Streaming");
+		if (streaming.isEmpty() || categoryRepository.findByName("Subscription").isPresent()) {
+			return;
+		}
+		categoryRepository.save(Category.reconstitute(streaming.get().id(), "Subscription"));
+		log.info("Renamed category Streaming → Subscription");
+	}
+
+	private void mergeHomeIntoUtilities() {
+		Optional<Category> home = categoryRepository.findByName("Home");
+		if (home.isEmpty()) {
+			return;
+		}
+
+		Optional<Category> utilities = categoryRepository.findByName("Utilities");
+		if (utilities.isEmpty()) {
+			categoryRepository.save(Category.reconstitute(home.get().id(), "Utilities"));
+			log.info("Renamed category Home → Utilities");
+			return;
+		}
+
+		Category homeCategory = home.get();
+		Category utilitiesCategory = utilities.get();
+		int movedTransactions = 0;
+		for (Transaction transaction : transactionRepository.findByCategoryId(homeCategory.id())) {
+			transaction.reassignCategory(utilitiesCategory.id());
+			transactionRepository.save(transaction);
+			movedTransactions++;
+		}
+
+		Set<String> utilityPatterns = ruleRepository.findAll().stream()
+				.filter(rule -> rule.categoryId().equals(utilitiesCategory.id()))
+				.map(rule -> rule.pattern().toLowerCase(Locale.ROOT))
+				.collect(Collectors.toSet());
+
+		int movedRules = 0;
+		for (ClassificationRule rule : List.copyOf(ruleRepository.findAll())) {
+			if (!rule.categoryId().equals(homeCategory.id())) {
+				continue;
+			}
+			ruleRepository.deleteById(rule.id());
+			if (!utilityPatterns.contains(rule.pattern().toLowerCase(Locale.ROOT))) {
+				ruleRepository.save(ClassificationRule.create(rule.pattern(), utilitiesCategory.id()));
+				movedRules++;
+			}
+		}
+
+		categoryRepository.deleteById(homeCategory.id());
+		log.info(
+				"Merged Home into Utilities ({} transactions, {} rules)",
+				movedTransactions,
+				movedRules);
+	}
+
 	private int removeObsoleteRules() {
 		int removed = 0;
 		for (ClassificationRule rule : ruleRepository.findAll()) {
@@ -148,11 +212,11 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("BP ", "Fuel");
 		rules.put("CALTEX", "Fuel");
 		rules.put("7-ELEVEN", "Fuel");
-		rules.put("NETFLIX", "Streaming");
-		rules.put("SPOTIFY", "Streaming");
-		rules.put("DISNEY", "Streaming");
-		rules.put("HBOMAX", "Streaming");
-		rules.put("STREAMING", "Streaming");
+		rules.put("NETFLIX", "Subscription");
+		rules.put("SPOTIFY", "Subscription");
+		rules.put("DISNEY", "Subscription");
+		rules.put("HBOMAX", "Subscription");
+		rules.put("STREAMING", "Subscription");
 		rules.put("AMAZON", "Shopping");
 		rules.put("KMART", "Shopping");
 		rules.put("TARGET", "Shopping");
@@ -162,10 +226,10 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("VODAFONE", "Utilities");
 		rules.put("AGL", "Utilities");
 		rules.put("ORIGIN ENERGY", "Utilities");
+		rules.put("Laundrette", "Utilities");
 		rules.put("CHEMIST", "Health");
 		rules.put("PHARMACY", "Health");
 		rules.put("Top Gym", "Health");
-		rules.put("Laundrette", "Home");
 		rules.put("Qantas Credit Cards", "Credit cards");
 		rules.put("Transfer To Landlord", "Rent");
 		rules.put("CommBank App Savings", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);

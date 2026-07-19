@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { formatDate } from '../format'
 import type { Account, Category, ImportBatch, Transaction } from '../types'
 
 function formatImportedAt(value: string) {
@@ -152,7 +153,7 @@ export function AccountDetailPage() {
             <tbody>
               {transactions.map((tx) => (
                 <tr key={tx.id}>
-                  <td>{tx.date}</td>
+                  <td>{formatDate(tx.date)}</td>
                   <td className={Number(tx.amount) < 0 ? 'negative' : 'positive'}>
                     {Number(tx.amount).toFixed(2)}
                   </td>

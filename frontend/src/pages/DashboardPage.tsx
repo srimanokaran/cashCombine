@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
+import { formatDate } from '../format'
 import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
 
 const BAR_COLORS = ['#7a73ff', '#2dd4bf', '#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399']
@@ -243,7 +244,7 @@ export function DashboardPage() {
                                 <tbody>
                                   {expandedTxs.map((tx) => (
                                     <tr key={tx.id}>
-                                      <td>{tx.date}</td>
+                                      <td>{formatDate(tx.date)}</td>
                                       <td>{tx.accountName}</td>
                                       <td>{tx.description}</td>
                                       <td className="negative">{formatMoney(tx.amount)}</td>

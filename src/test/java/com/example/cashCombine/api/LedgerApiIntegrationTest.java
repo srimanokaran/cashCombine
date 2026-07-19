@@ -103,11 +103,11 @@ class LedgerApiIntegrationTest {
 
 	@Test
 	void createAndDeleteRule() throws Exception {
-		String streamingId = categoryIdByName("Streaming");
+		String subscriptionId = categoryIdByName("Subscription");
 
 		MvcResult ruleResult = mockMvc.perform(post("/api/rules")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"pattern\":\"CUSTOM-STREAM-TEST\",\"categoryId\":\"" + streamingId + "\"}"))
+						.content("{\"pattern\":\"CUSTOM-STREAM-TEST\",\"categoryId\":\"" + subscriptionId + "\"}"))
 				.andExpect(status().isCreated())
 				.andReturn();
 		String ruleId = readJsonField(ruleResult, "id");
