@@ -24,8 +24,11 @@ export function DashboardPage() {
   const [reanalyseMessage, setReanalyseMessage] = useState<string | null>(null)
   const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null)
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true)
+  const loadDashboard = useCallback(async (options?: { quiet?: boolean }) => {
+    const quiet = options?.quiet ?? false
+    if (!quiet) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const [dashboardData, categoryData] = await Promise.all([
@@ -34,10 +37,14 @@ export function DashboardPage() {
       ])
       setDashboard(dashboardData)
       setCategories(categoryData)
+      return dashboardData
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+      return null
     } finally {
-      setLoading(false)
+      if (!quiet) {
+        setLoading(false)
+      }
     }
   }, [])
 
@@ -45,8 +52,11 @@ export function DashboardPage() {
     void loadDashboard()
   }, [loadDashboard])
 
-  async function loadExpandedTransactions(categoryId: string) {
-    setExpandedLoading(true)
+  async function loadExpandedTransactions(categoryId: string, options?: { quiet?: boolean }) {
+    const quiet = options?.quiet ?? false
+    if (!quiet) {
+      setExpandedLoading(true)
+    }
     setExpandedError(null)
     try {
       setExpandedTxs(await api.listExpenseTransactions(categoryId))
@@ -54,7 +64,9 @@ export function DashboardPage() {
       setExpandedTxs(null)
       setExpandedError(err instanceof Error ? err.message : 'Failed to load transactions')
     } finally {
-      setExpandedLoading(false)
+      if (!quiet) {
+        setExpandedLoading(false)
+      }
     }
   }
 
@@ -79,11 +91,18 @@ export function DashboardPage() {
       await api.changeCategory(transactionId, categoryId)
       setReanalyseMessage('Category updated — a rule was saved for that description.')
       const previousCategoryId = expandedCategoryId
-      await loadDashboard()
-      if (previousCategoryId) {
-        setExpandedCategoryId(previousCategoryId)
-        await loadExpandedTransactions(previousCategoryId)
+      const nextDashboard = await loadDashboard({ quiet: true })
+      if (!previousCategoryId) {
+        return
       }
+      // Category may have dropped off the breakdown once emptied.
+      const stillPresent = nextDashboard?.categories.some((row) => row.categoryId === previousCategoryId)
+      if (!stillPresent) {
+        setExpandedCategoryId(null)
+        setExpandedTxs(null)
+        return
+      }
+      await loadExpandedTransactions(previousCategoryId, { quiet: true })
     } catch (err) {
       setExpandedError(err instanceof Error ? err.message : 'Failed to change category')
     } finally {
