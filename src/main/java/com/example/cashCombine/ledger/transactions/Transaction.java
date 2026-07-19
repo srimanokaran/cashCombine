@@ -55,9 +55,9 @@ public class Transaction {
 				accountId,
 				importBatchId,
 				row.date(),
-				row.amount(),
+				TransactionFingerprint.canonicalMoney(row.amount()),
 				row.description(),
-				row.balance(),
+				TransactionFingerprint.canonicalMoney(row.balance()),
 				categoryId,
 				CategoryAssignmentSource.RULE);
 	}

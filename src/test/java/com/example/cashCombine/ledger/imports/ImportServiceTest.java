@@ -108,6 +108,25 @@ class ImportServiceTest {
 	}
 
 	@Test
+	void treatsDifferentAmountScalesAsDuplicates() throws Exception {
+		Account account = accountService.createAccount("CommBank Everyday", AccountType.COMMBANK);
+		String first = """
+				10/07/2026,"-45.0","WOOLWORTHS 1234 FAKETOWN VIC AUS","+2455.0"
+				""";
+		String second = """
+				10/07/2026,"-45.00","WOOLWORTHS 1234 FAKETOWN VIC AUS","+2455.00"
+				""";
+
+		ImportResult firstImport = importService.importCsv(account.id(), stream(first));
+		ImportResult secondImport = importService.importCsv(account.id(), stream(second));
+
+		assertThat(firstImport.accepted()).isEqualTo(1);
+		assertThat(secondImport.accepted()).isZero();
+		assertThat(secondImport.duplicate()).isEqualTo(1);
+		assertThat(transactionRepository.findByAccountId(account.id())).hasSize(1);
+	}
+
+	@Test
 	void throwsWhenAccountNotFound() {
 		var missingAccountId = AccountId.generate();
 

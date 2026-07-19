@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.dao.DataIntegrityViolationException;
 
 public class InMemoryTransactionRepository implements TransactionRepository {
 
@@ -20,8 +21,13 @@ public class InMemoryTransactionRepository implements TransactionRepository {
 
 	@Override
 	public Transaction save(Transaction transaction) {
+		AccountFingerprintKey key = new AccountFingerprintKey(transaction.accountId(), transaction.fingerprint());
+		boolean sameRow = transactions.containsKey(transaction.id());
+		if (!sameRow && fingerprints.contains(key)) {
+			throw new DataIntegrityViolationException("Duplicate transaction fingerprint");
+		}
 		transactions.put(transaction.id(), transaction);
-		fingerprints.add(new AccountFingerprintKey(transaction.accountId(), transaction.fingerprint()));
+		fingerprints.add(key);
 		return transaction;
 	}
 

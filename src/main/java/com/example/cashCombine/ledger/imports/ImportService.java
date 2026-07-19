@@ -20,9 +20,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
-@Transactional
 public class ImportService {
 
 	private final AccountRepository accountRepository;
@@ -82,11 +82,13 @@ public class ImportService {
 		return result;
 	}
 
+	@Transactional(readOnly = true)
 	public List<ImportBatch> listImports(AccountId accountId) {
 		requireAccount(accountId);
 		return importBatchRepository.findByAccountId(accountId);
 	}
 
+	@Transactional
 	public void deleteImport(AccountId accountId, ImportBatchId importBatchId) {
 		Account account = requireAccount(accountId);
 		ImportBatch batch = importBatchRepository
@@ -176,7 +178,13 @@ public class ImportService {
 			}
 
 			CategoryId categoryId = classifier.classify(row.description());
-			transactionRepository.save(Transaction.create(accountId, row, categoryId, batchId));
+			try {
+				transactionRepository.save(Transaction.create(accountId, row, categoryId, batchId));
+			}
+			catch (DataIntegrityViolationException ex) {
+				// Unique constraint is the final authority (e.g. concurrent imports).
+				return RowOutcome.DUPLICATE;
+			}
 			acceptedThisImport.add(fingerprint);
 			return RowOutcome.ACCEPTED;
 		}

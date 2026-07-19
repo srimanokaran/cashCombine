@@ -132,7 +132,8 @@ class TransactionServiceTest {
 	void listsTransactionsForAccount() {
 		AccountId accountId = AccountId.generate();
 		Transaction first = transactionRepository.save(sampleTransaction(accountId, uncategorised.id()));
-		Transaction second = transactionRepository.save(sampleTransaction(accountId, groceries.id()));
+		Transaction second = transactionRepository.save(
+				sampleTransaction(accountId, groceries.id(), "WOOLWORTHS 1234", LocalDate.of(2026, 7, 9)));
 		transactionRepository.save(sampleTransaction(AccountId.generate(), dining.id()));
 
 		assertThat(transactionService.listByAccount(accountId)).containsExactlyInAnyOrder(first, second);
