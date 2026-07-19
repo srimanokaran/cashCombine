@@ -48,10 +48,10 @@ export function AccountDetailPage() {
   async function onChangeCategory(transactionId: string, categoryId: string) {
     setError(null)
     try {
-      const updated = await api.changeCategory(transactionId, categoryId)
-      setTransactions((current) =>
-        current.map((tx) => (tx.id === updated.id ? updated : tx)),
-      )
+      await api.changeCategory(transactionId, categoryId)
+      // Reload so sibling transactions updated by the new rule appear correctly.
+      const txData = await api.listTransactions(id)
+      setTransactions(txData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to change category')
     }
@@ -104,7 +104,7 @@ export function AccountDetailPage() {
       <h1>{account.name}</h1>
       <p className="lede">
         {account.hasImports ? 'Has imports' : 'No imports yet'} — upload CSVs from the{' '}
-        <Link to="/">Import</Link> page.
+        <Link to="/">Import</Link> page. Changing a category also creates a rule for that description.
       </p>
 
       {error && <p className="error">{error}</p>}

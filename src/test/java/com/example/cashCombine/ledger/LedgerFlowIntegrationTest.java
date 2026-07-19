@@ -13,6 +13,7 @@ import com.example.cashCombine.ledger.categorisation.CategoryAssignmentSource;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
+import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
 import com.example.cashCombine.ledger.categorisation.InMemoryCategoryRepository;
 import com.example.cashCombine.ledger.categorisation.InMemoryClassificationRuleRepository;
 import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
@@ -68,7 +69,8 @@ class LedgerFlowIntegrationTest {
 		ruleRepository.save(ClassificationRule.create("STREAMING", streaming.id()));
 
 		TransactionClassifier classifier = new TransactionClassifier(ruleRepository, uncategorised.id());
-		transactionService = new TransactionService(transactionRepository, categoryRepository);
+		ClassificationRuleService ruleService = new ClassificationRuleService(ruleRepository, categoryRepository);
+		transactionService = new TransactionService(transactionRepository, categoryRepository, ruleService);
 
 		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
 		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());

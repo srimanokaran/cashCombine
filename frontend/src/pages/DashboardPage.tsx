@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
-import type { CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
+import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
 
 const BAR_COLORS = ['#7a73ff', '#2dd4bf', '#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399']
 
@@ -13,6 +13,7 @@ function formatMoney(value: number | string) {
 
 export function DashboardPage() {
   const [dashboard, setDashboard] = useState<ExpenseDashboard | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null)
@@ -21,12 +22,18 @@ export function DashboardPage() {
   const [expandedError, setExpandedError] = useState<string | null>(null)
   const [reanalysing, setReanalysing] = useState(false)
   const [reanalyseMessage, setReanalyseMessage] = useState<string | null>(null)
+  const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null)
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      setDashboard(await api.getExpenseDashboard())
+      const [dashboardData, categoryData] = await Promise.all([
+        api.getExpenseDashboard(),
+        api.listCategories(),
+      ])
+      setDashboard(dashboardData)
+      setCategories(categoryData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
     } finally {
@@ -38,6 +45,19 @@ export function DashboardPage() {
     void loadDashboard()
   }, [loadDashboard])
 
+  async function loadExpandedTransactions(categoryId: string) {
+    setExpandedLoading(true)
+    setExpandedError(null)
+    try {
+      setExpandedTxs(await api.listExpenseTransactions(categoryId))
+    } catch (err) {
+      setExpandedTxs(null)
+      setExpandedError(err instanceof Error ? err.message : 'Failed to load transactions')
+    } finally {
+      setExpandedLoading(false)
+    }
+  }
+
   async function onToggleCategory(row: CategorySpend) {
     if (expandedCategoryId === row.categoryId) {
       setExpandedCategoryId(null)
@@ -48,14 +68,26 @@ export function DashboardPage() {
 
     setExpandedCategoryId(row.categoryId)
     setExpandedTxs(null)
+    await loadExpandedTransactions(row.categoryId)
+  }
+
+  async function onChangeCategory(transactionId: string, categoryId: string) {
+    setChangingCategoryId(transactionId)
     setExpandedError(null)
-    setExpandedLoading(true)
+    setError(null)
     try {
-      setExpandedTxs(await api.listExpenseTransactions(row.categoryId))
+      await api.changeCategory(transactionId, categoryId)
+      setReanalyseMessage('Category updated — a rule was saved for that description.')
+      const previousCategoryId = expandedCategoryId
+      await loadDashboard()
+      if (previousCategoryId) {
+        setExpandedCategoryId(previousCategoryId)
+        await loadExpandedTransactions(previousCategoryId)
+      }
     } catch (err) {
-      setExpandedError(err instanceof Error ? err.message : 'Failed to load transactions')
+      setExpandedError(err instanceof Error ? err.message : 'Failed to change category')
     } finally {
-      setExpandedLoading(false)
+      setChangingCategoryId(null)
     }
   }
 
@@ -94,6 +126,7 @@ export function DashboardPage() {
           <h1>Expenses</h1>
           <p className="lede">
             Spending across all accounts, grouped by category. Click a category to see its transactions.
+            Changing a category also creates a rule for that description.
           </p>
         </div>
         <button type="button" onClick={() => void onReanalyse()} disabled={reanalysing || loading}>
@@ -185,6 +218,7 @@ export function DashboardPage() {
                                     <th>Account</th>
                                     <th>Description</th>
                                     <th>Amount</th>
+                                    <th>Category</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -194,6 +228,20 @@ export function DashboardPage() {
                                       <td>{tx.accountName}</td>
                                       <td>{tx.description}</td>
                                       <td className="negative">{formatMoney(tx.amount)}</td>
+                                      <td>
+                                        <select
+                                          value={row.categoryId}
+                                          disabled={changingCategoryId === tx.id}
+                                          onChange={(e) => void onChangeCategory(tx.id, e.target.value)}
+                                          aria-label={`Category for ${tx.description}`}
+                                        >
+                                          {categories.map((category) => (
+                                            <option key={category.id} value={category.id}>
+                                              {category.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>

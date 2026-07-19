@@ -1,6 +1,7 @@
 package com.example.cashCombine.ledger.categorisation;
 
 import java.util.List;
+import java.util.Optional;
 
 public class ClassificationRuleService {
 
@@ -19,6 +20,27 @@ public class ClassificationRuleService {
 		}
 		ClassificationRule rule = ClassificationRule.create(pattern, categoryId);
 		return ruleRepository.save(rule);
+	}
+
+	/**
+	 * Creates a rule for the pattern, or retargets an existing same-pattern rule (case-insensitive).
+	 */
+	public ClassificationRule upsertRule(String pattern, CategoryId categoryId) {
+		if (categoryRepository.findById(categoryId).isEmpty()) {
+			throw new CategoryNotFoundException(categoryId);
+		}
+		String normalised = pattern == null ? "" : pattern;
+		Optional<ClassificationRule> existing = ruleRepository.findAll().stream()
+				.filter(rule -> rule.pattern().equalsIgnoreCase(normalised))
+				.findFirst();
+		if (existing.isPresent()) {
+			ClassificationRule current = existing.get();
+			if (current.categoryId().equals(categoryId)) {
+				return current;
+			}
+			ruleRepository.deleteById(current.id());
+		}
+		return ruleRepository.save(ClassificationRule.create(normalised, categoryId));
 	}
 
 	public List<ClassificationRule> listRules() {

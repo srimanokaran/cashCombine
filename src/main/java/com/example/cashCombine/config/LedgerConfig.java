@@ -54,8 +54,10 @@ public class LedgerConfig {
 
 	@Bean
 	TransactionService transactionService(
-			TransactionRepository transactionRepository, CategoryRepository categoryRepository) {
-		return new TransactionService(transactionRepository, categoryRepository);
+			TransactionRepository transactionRepository,
+			CategoryRepository categoryRepository,
+			ClassificationRuleService classificationRuleService) {
+		return new TransactionService(transactionRepository, categoryRepository, classificationRuleService);
 	}
 
 	@Bean
