@@ -19,7 +19,8 @@ public class ClassificationRule {
 		if (categoryId == null) {
 			throw new IllegalArgumentException("Category id is required");
 		}
-		return new ClassificationRule(ClassificationRuleId.generate(), pattern.trim(), categoryId);
+		// Preserve leading/trailing spaces — e.g. "BP " must not become "BP" (matches BPAY).
+		return new ClassificationRule(ClassificationRuleId.generate(), pattern, categoryId);
 	}
 
 	public static ClassificationRule reconstitute(ClassificationRuleId id, String pattern, CategoryId categoryId) {

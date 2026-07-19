@@ -104,6 +104,33 @@
   font-size: 0.92rem;
 }
 
+.success {
+  color: #9aefc5;
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.28);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  font-weight: 500;
+  font-size: 0.92rem;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.page-heading .lede {
+  margin-bottom: 0;
+}
+
+.page-heading > button {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
 .row-form,
 .stack-form {
   display: flex;
@@ -443,6 +470,47 @@ td .meta {
 .spend-breakdown li {
   display: grid;
   gap: 0.4rem;
+}
+
+.spend-toggle {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.spend-toggle:hover .spend-name,
+.spend-toggle:hover .spend-amount {
+  color: var(--accent, #2dd4bf);
+}
+
+.spend-toggle:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.55);
+  outline-offset: 4px;
+  border-radius: 0.35rem;
+}
+
+.spend-detail {
+  margin-top: 0.35rem;
+  padding: 0.65rem 0.75rem 0.15rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.spend-detail .table-wrap {
+  margin: 0;
+}
+
+.spend-detail table {
+  font-size: 0.88rem;
 }
 
 .spend-row-top,

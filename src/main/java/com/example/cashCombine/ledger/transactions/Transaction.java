@@ -120,6 +120,18 @@ public class Transaction {
 		this.categoryId = newCategoryId;
 	}
 
+	/** Applies a rule-derived category (used when re-analysing imports). */
+	public void applyRuleCategory(CategoryId newCategoryId) {
+		if (newCategoryId == null) {
+			throw new IllegalArgumentException("Category id is required");
+		}
+		if (isManuallyCategorised()) {
+			throw new IllegalStateException("Cannot overwrite a manual category with a rule");
+		}
+		this.categoryId = newCategoryId;
+		this.categoryAssignmentSource = CategoryAssignmentSource.RULE;
+	}
+
 	public TransactionId id() {
 		return id;
 	}

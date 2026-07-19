@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Seeds starter categories and contains-match rules (idempotent).
+ * Existing seed patterns are updated if their target category changes.
  */
 @Component
 @Order(1)
@@ -36,8 +37,18 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 			"Shopping",
 			"Utilities",
 			"Health",
-			"Transfers",
+			"Home",
+			"Credit cards",
+			"Rent",
+			Category.FUNDS_BETWEEN_ACCOUNTS_NAME,
 			"Income");
+
+	/**
+	 * Broad / broken patterns previously seeded.
+	 * - transfer to/from: too blunt
+	 * - "BP": was "BP " but trim() stripped the space, so it matched BPAY credit-card bills
+	 */
+	private static final Set<String> OBSOLETE_PATTERNS = Set.of("transfer to", "transfer from", "bp");
 
 	/** pattern → category name */
 	private static final Map<String, String> RULES = seedRules();
@@ -62,27 +73,58 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 			categoriesByName.put(name.toLowerCase(Locale.ROOT), category);
 		}
 
-		Set<String> existingPatterns = ruleRepository.findAll().stream()
-				.map(rule -> rule.pattern().toLowerCase(Locale.ROOT))
-				.collect(Collectors.toSet());
+		int removed = removeObsoleteRules();
+
+		Map<String, ClassificationRule> existingByPattern = ruleRepository.findAll().stream()
+				.collect(Collectors.toMap(
+						rule -> rule.pattern().toLowerCase(Locale.ROOT),
+						rule -> rule,
+						(first, ignored) -> first,
+						LinkedHashMap::new));
 
 		int created = 0;
+		int updated = 0;
 		for (Map.Entry<String, String> entry : RULES.entrySet()) {
 			String pattern = entry.getKey();
-			if (existingPatterns.contains(pattern.toLowerCase(Locale.ROOT))) {
-				continue;
-			}
 			Category category = categoriesByName.get(entry.getValue().toLowerCase(Locale.ROOT));
 			if (category == null) {
 				continue;
 			}
+
+			ClassificationRule existing = existingByPattern.get(pattern.toLowerCase(Locale.ROOT));
+			if (existing != null) {
+				if (existing.categoryId().equals(category.id())) {
+					continue;
+				}
+				ruleRepository.deleteById(existing.id());
+				ruleRepository.save(ClassificationRule.create(pattern, category.id()));
+				updated++;
+				continue;
+			}
+
 			ruleRepository.save(ClassificationRule.create(pattern, category.id()));
 			created++;
 		}
 
-		if (created > 0) {
-			log.info("Seeded {} classification rules ({} categories ensured)", created, CATEGORIES.size());
+		if (created > 0 || updated > 0 || removed > 0) {
+			log.info(
+					"Classification seed: created {}, updated {}, removed {} obsolete ({} categories ensured)",
+					created,
+					updated,
+					removed,
+					CATEGORIES.size());
 		}
+	}
+
+	private int removeObsoleteRules() {
+		int removed = 0;
+		for (ClassificationRule rule : ruleRepository.findAll()) {
+			if (OBSOLETE_PATTERNS.contains(rule.pattern().toLowerCase(Locale.ROOT))) {
+				ruleRepository.deleteById(rule.id());
+				removed++;
+			}
+		}
+		return removed;
 	}
 
 	private static Map<String, String> seedRules() {
@@ -95,9 +137,10 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("COFFEE", "Dining");
 		rules.put("MCDONALD", "Dining");
 		rules.put("GUZMAN", "Dining");
+		rules.put("DOORDASH", "Dining");
 		rules.put("UBER EATS", "Dining");
 		rules.put("MENULOG", "Dining");
-		rules.put("UBER", "Transport");
+		rules.put("UBER", "Dining");
 		rules.put("OLA", "Transport");
 		rules.put("MYKI", "Transport");
 		rules.put("TRANSPORT", "Transport");
@@ -108,6 +151,7 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("NETFLIX", "Streaming");
 		rules.put("SPOTIFY", "Streaming");
 		rules.put("DISNEY", "Streaming");
+		rules.put("HBOMAX", "Streaming");
 		rules.put("STREAMING", "Streaming");
 		rules.put("AMAZON", "Shopping");
 		rules.put("KMART", "Shopping");
@@ -115,12 +159,16 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("JB HI", "Shopping");
 		rules.put("OPTUS", "Utilities");
 		rules.put("TELSTRA", "Utilities");
+		rules.put("VODAFONE", "Utilities");
 		rules.put("AGL", "Utilities");
 		rules.put("ORIGIN ENERGY", "Utilities");
 		rules.put("CHEMIST", "Health");
 		rules.put("PHARMACY", "Health");
-		rules.put("Transfer To", "Transfers");
-		rules.put("Transfer From", "Transfers");
+		rules.put("Top Gym", "Health");
+		rules.put("Laundrette", "Home");
+		rules.put("Qantas Credit Cards", "Credit cards");
+		rules.put("Transfer To Landlord", "Rent");
+		rules.put("CommBank App Savings", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		rules.put("PAYROLL", "Income");
 		rules.put("Direct Credit", "Income");
 		return Map.copyOf(rules);

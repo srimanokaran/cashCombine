@@ -5,6 +5,7 @@ import com.example.cashCombine.ledger.accounts.AccountService;
 import com.example.cashCombine.ledger.accounts.AccountType;
 import com.example.cashCombine.ledger.categorisation.Category;
 import com.example.cashCombine.ledger.categorisation.CategoryId;
+import com.example.cashCombine.ledger.categorisation.CategoryReanalysisService;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
 import com.example.cashCombine.ledger.categorisation.CategoryService;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
@@ -58,9 +59,17 @@ public class LedgerConfig {
 	}
 
 	@Bean
+	CategoryReanalysisService categoryReanalysisService(
+			TransactionRepository transactionRepository, TransactionClassifier transactionClassifier) {
+		return new CategoryReanalysisService(transactionRepository, transactionClassifier);
+	}
+
+	@Bean
 	DashboardService dashboardService(
-			TransactionRepository transactionRepository, CategoryRepository categoryRepository) {
-		return new DashboardService(transactionRepository, categoryRepository);
+			TransactionRepository transactionRepository,
+			CategoryRepository categoryRepository,
+			AccountRepository accountRepository) {
+		return new DashboardService(transactionRepository, categoryRepository, accountRepository);
 	}
 
 	@Bean

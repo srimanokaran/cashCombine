@@ -2,7 +2,9 @@ import type {
   Account,
   AccountType,
   Category,
+  CategoryReanalysisResult,
   ExpenseDashboard,
+  ExpenseTransaction,
   ImportBatch,
   ImportResult,
   Rule,
@@ -90,4 +92,8 @@ export const api = {
   deleteRule: (id: string) =>
     request<void>(`/api/rules/${id}`, { method: 'DELETE' }),
   getExpenseDashboard: () => request<ExpenseDashboard>('/api/dashboard/expenses'),
+  listExpenseTransactions: (categoryId: string) =>
+    request<ExpenseTransaction[]>(`/api/dashboard/expenses/categories/${categoryId}/transactions`),
+  reanalyseExpenses: () =>
+    request<CategoryReanalysisResult>('/api/dashboard/expenses/reanalyse', { method: 'POST' }),
 }

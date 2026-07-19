@@ -56,10 +56,25 @@ export interface CategorySpend {
   transactionCount: number
 }
 
+export interface ExpenseTransaction {
+  id: string
+  accountId: string
+  accountName: string
+  date: string
+  amount: number
+  description: string
+}
+
 export interface ExpenseDashboard {
   totalExpenses: number
   expenseTransactionCount: number
   categories: CategorySpend[]
+}
+
+export interface CategoryReanalysisResult {
+  examined: number
+  updated: number
+  skippedManual: number
 }
 
 export interface ApiError {

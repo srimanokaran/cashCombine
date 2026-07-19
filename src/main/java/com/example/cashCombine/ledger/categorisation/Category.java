@@ -4,6 +4,9 @@ public class Category {
 
 	public static final String UNCATEGORISED_NAME = "Uncategorised";
 
+	/** Internal account-to-account moves; excluded from expense totals. */
+	public static final String FUNDS_BETWEEN_ACCOUNTS_NAME = "Funds between accounts";
+
 	private final CategoryId id;
 	private final String name;
 
@@ -37,6 +40,10 @@ public class Category {
 
 	public boolean isUncategorised() {
 		return UNCATEGORISED_NAME.equalsIgnoreCase(name);
+	}
+
+	public boolean isExcludedFromExpenses() {
+		return FUNDS_BETWEEN_ACCOUNTS_NAME.equalsIgnoreCase(name);
 	}
 
 }

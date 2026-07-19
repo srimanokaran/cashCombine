@@ -54,4 +54,15 @@ class TransactionClassifierTest {
 		assertThat(classifier.classify("UBER *ONE MEMBERSHIP")).isEqualTo(transport.id());
 	}
 
+	@Test
+	void preservesTrailingSpaceSoBpFuelDoesNotMatchBpay() {
+		Category fuel = Category.create("Fuel");
+		ruleRepository.save(ClassificationRule.create("BP ", fuel.id()));
+
+		assertThat(classifier.classify("BP EXPRESS HIGHWAY")).isEqualTo(fuel.id());
+		assertThat(classifier.classify(
+						"Qantas Credit Cards CommBank app BPAY 000000 0000000000000000 Bill"))
+				.isEqualTo(uncategorised.id());
+	}
+
 }
