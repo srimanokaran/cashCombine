@@ -46,12 +46,12 @@ class TransactionClassifierTest {
 	}
 
 	@Test
-	void usesFirstMatchingRuleInRegistrationOrder() {
+	void prefersLongerMoreSpecificPatternOverBroaderSeedRule() {
 		Category transport = Category.create("Transport");
 		ruleRepository.save(ClassificationRule.create("UBER", transport.id()));
 		ruleRepository.save(ClassificationRule.create("UBER *ONE", streaming.id()));
 
-		assertThat(classifier.classify("UBER *ONE MEMBERSHIP")).isEqualTo(transport.id());
+		assertThat(classifier.classify("UBER *ONE MEMBERSHIP")).isEqualTo(streaming.id());
 	}
 
 	@Test
@@ -70,12 +70,13 @@ class TransactionClassifierTest {
 		Category funds = Category.create(Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		Category income = Category.create(Category.INCOME_NAME);
 		ruleRepository.save(ClassificationRule.create(" ING ", funds.id()));
-		ruleRepository.save(ClassificationRule.create("Direct Credit", income.id()));
+		ruleRepository.save(ClassificationRule.create("PAYROLL", income.id()));
 
 		assertThat(classifier.classify("Direct Credit 000000 ING 000000000 0000000"))
 				.isEqualTo(funds.id());
 		assertThat(classifier.classify("KMART SHOPPING CENTRE")).isEqualTo(uncategorised.id());
 		assertThat(classifier.classify("Direct Credit ACME PAYROLL")).isEqualTo(income.id());
+		assertThat(classifier.classify("Direct Credit ACME REFUND")).isEqualTo(uncategorised.id());
 	}
 
 }

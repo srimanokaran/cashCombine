@@ -6,6 +6,7 @@ import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -238,7 +239,8 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		// Spaces avoid matching substrings like SHOPPING.
 		rules.put(" ING ", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		rules.put("PAYROLL", Category.INCOME_NAME);
-		return Map.copyOf(rules);
+		// Preserve LinkedHashMap encounter order (Map.copyOf does not).
+		return Collections.unmodifiableMap(rules);
 	}
 
 }

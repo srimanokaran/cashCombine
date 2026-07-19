@@ -1,5 +1,7 @@
 package com.example.cashCombine.ledger.categorisation;
 
+import java.util.Comparator;
+
 public class TransactionClassifier {
 
 	private final ClassificationRuleRepository ruleRepository;
@@ -14,12 +16,14 @@ public class TransactionClassifier {
 	}
 
 	public CategoryId classify(String description) {
-		for (ClassificationRule rule : ruleRepository.findAll()) {
-			if (rule.matches(description)) {
-				return rule.categoryId();
-			}
-		}
-		return uncategorisedId;
+		// Longer patterns first so specific/manual rules beat broader seed rules.
+		// Stable sort preserves createdOrder for equal-length patterns.
+		return ruleRepository.findAll().stream()
+				.sorted(Comparator.comparingInt((ClassificationRule r) -> r.pattern().length()).reversed())
+				.filter(rule -> rule.matches(description))
+				.map(ClassificationRule::categoryId)
+				.findFirst()
+				.orElse(uncategorisedId);
 	}
 
 }
