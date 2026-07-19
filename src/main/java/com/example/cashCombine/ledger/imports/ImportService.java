@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class ImportService {
 
 	private final AccountRepository accountRepository;
 	private final TransactionRepository transactionRepository;
+	private final ImportBatchRepository importBatchRepository;
 	private final Map<AccountType, TransactionCsvParser> parsers;
 	private final Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies;
 	private final TransactionClassifier classifier;
@@ -33,11 +35,13 @@ public class ImportService {
 	public ImportService(
 			AccountRepository accountRepository,
 			TransactionRepository transactionRepository,
+			ImportBatchRepository importBatchRepository,
 			Map<AccountType, TransactionCsvParser> parsers,
 			Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies,
 			TransactionClassifier classifier) {
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
+		this.importBatchRepository = importBatchRepository;
 		this.parsers = parsers;
 		this.fingerprintStrategies = fingerprintStrategies;
 		this.classifier = classifier;
@@ -49,8 +53,10 @@ public class ImportService {
 	 * Input:
 	 * - accountId: target account (must exist; type selects parser and fingerprint rules)
 	 * - input: CSV bytes (format depends on account type)
+	 * - filename: optional original upload name (stored on the import batch)
 	 *
 	 * Output ImportResult:
+	 * - id: import batch id (transactions created by this upload are linked to it)
 	 * - accepted: new rows saved (with category from rules or Uncategorised)
 	 * - duplicate: already seen for this account (skipped, not updated)
 	 * - rejected: bad rows after the first data row (skipped; import continues)
@@ -60,13 +66,43 @@ public class ImportService {
 	 * - first data row unparseable: InvalidCsvFormatException (whole import fails)
 	 */
 	public ImportResult importCsv(AccountId accountId, InputStream input) throws IOException {
+		return importCsv(accountId, input, null);
+	}
+
+	public ImportResult importCsv(AccountId accountId, InputStream input, String filename) throws IOException {
 		Account account = requireAccount(accountId);
 		TransactionCsvParser parser = requireParser(account.type());
 		TransactionFingerprintStrategy fingerprintStrategy = requireFingerprintStrategy(account.type());
 
-		ImportResult result = processRows(accountId, input, parser, fingerprintStrategy);
+		ImportBatchId batchId = ImportBatchId.generate();
+		ImportResult result = processRows(accountId, batchId, input, parser, fingerprintStrategy);
+		importBatchRepository.save(
+				ImportBatch.create(batchId, accountId, filename, result.accepted(), result.duplicate(), result.rejected()));
 		markImportedIfNeeded(account, result);
 		return result;
+	}
+
+	public List<ImportBatch> listImports(AccountId accountId) {
+		requireAccount(accountId);
+		return importBatchRepository.findByAccountId(accountId);
+	}
+
+	public void deleteImport(AccountId accountId, ImportBatchId importBatchId) {
+		Account account = requireAccount(accountId);
+		ImportBatch batch = importBatchRepository
+				.findById(importBatchId)
+				.orElseThrow(() -> new ImportNotFoundException(importBatchId));
+		if (!batch.accountId().equals(accountId)) {
+			throw new ImportNotFoundException(importBatchId);
+		}
+
+		transactionRepository.deleteByImportBatchId(importBatchId);
+		importBatchRepository.deleteById(importBatchId);
+
+		if (!transactionRepository.existsByAccountId(accountId)) {
+			account.clearImports();
+			accountRepository.save(account);
+		}
 	}
 
 	private Account requireAccount(AccountId accountId) {
@@ -91,6 +127,7 @@ public class ImportService {
 
 	private ImportResult processRows(
 			AccountId accountId,
+			ImportBatchId batchId,
 			InputStream input,
 			TransactionCsvParser parser,
 			TransactionFingerprintStrategy fingerprintStrategy) throws IOException {
@@ -107,7 +144,8 @@ public class ImportService {
 					continue;
 				}
 
-				RowOutcome outcome = processRow(accountId, line, parser, fingerprintStrategy, acceptedThisImport, firstDataRow);
+				RowOutcome outcome =
+						processRow(accountId, batchId, line, parser, fingerprintStrategy, acceptedThisImport, firstDataRow);
 				switch (outcome) {
 					case ACCEPTED -> accepted++;
 					case DUPLICATE -> duplicate++;
@@ -117,11 +155,12 @@ public class ImportService {
 			}
 		}
 
-		return new ImportResult(accepted, duplicate, rejected);
+		return new ImportResult(batchId, accepted, duplicate, rejected);
 	}
 
 	private RowOutcome processRow(
 			AccountId accountId,
+			ImportBatchId batchId,
 			String line,
 			TransactionCsvParser parser,
 			TransactionFingerprintStrategy fingerprintStrategy,
@@ -137,7 +176,7 @@ public class ImportService {
 			}
 
 			CategoryId categoryId = classifier.classify(row.description());
-			transactionRepository.save(Transaction.create(accountId, row, categoryId));
+			transactionRepository.save(Transaction.create(accountId, row, categoryId, batchId));
 			acceptedThisImport.add(fingerprint);
 			return RowOutcome.ACCEPTED;
 		}

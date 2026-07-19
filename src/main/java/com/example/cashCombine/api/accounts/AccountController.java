@@ -3,6 +3,7 @@ package com.example.cashCombine.api.accounts;
 import com.example.cashCombine.api.transactions.TransactionResponse;
 import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.accounts.AccountService;
+import com.example.cashCombine.ledger.imports.ImportBatchId;
 import com.example.cashCombine.ledger.imports.ImportResult;
 import com.example.cashCombine.ledger.imports.ImportService;
 import com.example.cashCombine.ledger.transactions.TransactionService;
@@ -68,8 +69,20 @@ public class AccountController {
 	@PostMapping(path = "/{id}/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ImportResultResponse importCsv(@PathVariable UUID id, @RequestPart("file") MultipartFile file)
 			throws IOException {
-		ImportResult result = importService.importCsv(new AccountId(id), file.getInputStream());
+		ImportResult result =
+				importService.importCsv(new AccountId(id), file.getInputStream(), file.getOriginalFilename());
 		return ImportResultResponse.from(result);
+	}
+
+	@GetMapping("/{id}/imports")
+	public List<ImportBatchResponse> listImports(@PathVariable UUID id) {
+		return importService.listImports(new AccountId(id)).stream().map(ImportBatchResponse::from).toList();
+	}
+
+	@DeleteMapping("/{id}/imports/{importId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void deleteImport(@PathVariable UUID id, @PathVariable UUID importId) {
+		importService.deleteImport(new AccountId(id), new ImportBatchId(importId));
 	}
 
 	@GetMapping("/{id}/transactions")

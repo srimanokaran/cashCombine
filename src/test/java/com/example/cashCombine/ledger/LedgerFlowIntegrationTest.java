@@ -19,6 +19,7 @@ import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
 import com.example.cashCombine.ledger.imports.CommBankCsvParser;
 import com.example.cashCombine.ledger.imports.ImportResult;
 import com.example.cashCombine.ledger.imports.ImportService;
+import com.example.cashCombine.ledger.imports.InMemoryImportBatchRepository;
 import com.example.cashCombine.ledger.imports.TransactionCsvParser;
 import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository;
@@ -53,7 +54,8 @@ class LedgerFlowIntegrationTest {
 	void setUp() {
 		var accountRepository = new InMemoryAccountRepository();
 		transactionRepository = new InMemoryTransactionRepository();
-		accountService = new AccountService(accountRepository, transactionRepository);
+		var importBatchRepository = new InMemoryImportBatchRepository();
+		accountService = new AccountService(accountRepository, transactionRepository, importBatchRepository);
 
 		categoryRepository = new InMemoryCategoryRepository();
 		uncategorised = categoryRepository.save(Category.uncategorised());
@@ -77,6 +79,7 @@ class LedgerFlowIntegrationTest {
 		importService = new ImportService(
 				accountRepository,
 				transactionRepository,
+				importBatchRepository,
 				parsers,
 				fingerprintStrategies,
 				classifier);

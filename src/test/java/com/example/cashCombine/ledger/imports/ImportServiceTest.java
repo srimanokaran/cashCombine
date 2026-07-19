@@ -41,7 +41,8 @@ class ImportServiceTest {
 	void setUp() {
 		var accountRepository = new InMemoryAccountRepository();
 		transactionRepository = new InMemoryTransactionRepository();
-		accountService = new AccountService(accountRepository, transactionRepository);
+		var importBatchRepository = new InMemoryImportBatchRepository();
+		accountService = new AccountService(accountRepository, transactionRepository, importBatchRepository);
 
 		CategoryRepository categoryRepository = new InMemoryCategoryRepository();
 		uncategorised = categoryRepository.save(Category.uncategorised());
@@ -61,6 +62,7 @@ class ImportServiceTest {
 		importService = new ImportService(
 				accountRepository,
 				transactionRepository,
+				importBatchRepository,
 				parsers,
 				fingerprintStrategies,
 				classifier);
@@ -139,6 +141,39 @@ class ImportServiceTest {
 		assertThat(result.accepted()).isEqualTo(2);
 		assertThat(result.duplicate()).isZero();
 		assertThat(result.rejected()).isEqualTo(1);
+	}
+
+	@Test
+	void deleteImportRemovesLinkedTransactions() throws Exception {
+		Account account = accountService.createAccount("CommBank Everyday", AccountType.COMMBANK);
+		String first = """
+				10/07/2026,"-45.00","WOOLWORTHS 1234 FAKETOWN VIC AUS","+2455.00"
+				""";
+		String second = """
+				09/07/2026,"-12.50","CAFE EXAMPLE BLEND FAKETOWN AUS","+2467.50"
+				""";
+
+		ImportResult firstImport = importService.importCsv(account.id(), stream(first), "first.csv");
+		ImportResult secondImport = importService.importCsv(account.id(), stream(second), "second.csv");
+
+		assertThat(importService.listImports(account.id())).hasSize(2);
+		assertThat(transactionRepository.findByAccountId(account.id())).hasSize(2);
+
+		importService.deleteImport(account.id(), firstImport.id());
+
+		assertThat(importService.listImports(account.id()))
+				.extracting(batch -> batch.id())
+				.containsExactly(secondImport.id());
+		assertThat(transactionRepository.findByAccountId(account.id()))
+				.extracting(Transaction::description)
+				.containsExactly("CAFE EXAMPLE BLEND FAKETOWN AUS");
+		assertThat(accountService.getAccount(account.id()).hasImports()).isTrue();
+
+		importService.deleteImport(account.id(), secondImport.id());
+
+		assertThat(importService.listImports(account.id())).isEmpty();
+		assertThat(transactionRepository.findByAccountId(account.id())).isEmpty();
+		assertThat(accountService.getAccount(account.id()).hasImports()).isFalse();
 	}
 
 	private static InputStream sampleCsvStream() {

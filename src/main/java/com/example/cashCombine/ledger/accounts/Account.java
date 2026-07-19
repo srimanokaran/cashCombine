@@ -48,6 +48,10 @@ public class Account {
 		this.hasImports = true;
 	}
 
+	public void clearImports() {
+		this.hasImports = false;
+	}
+
 	public void changeType(AccountType newType) {
 		if (hasImports) {
 			throw new IllegalStateException("Cannot change account type after imports exist");

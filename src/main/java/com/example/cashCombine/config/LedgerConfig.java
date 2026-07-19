@@ -12,6 +12,7 @@ import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
 import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
 import com.example.cashCombine.ledger.dashboard.DashboardService;
 import com.example.cashCombine.ledger.imports.CommBankCsvParser;
+import com.example.cashCombine.ledger.imports.ImportBatchRepository;
 import com.example.cashCombine.ledger.imports.ImportService;
 import com.example.cashCombine.ledger.imports.TransactionCsvParser;
 import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
@@ -29,8 +30,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 public class LedgerConfig {
 
 	@Bean
-	AccountService accountService(AccountRepository accountRepository, TransactionRepository transactionRepository) {
-		return new AccountService(accountRepository, transactionRepository);
+	AccountService accountService(
+			AccountRepository accountRepository,
+			TransactionRepository transactionRepository,
+			ImportBatchRepository importBatchRepository) {
+		return new AccountService(accountRepository, transactionRepository, importBatchRepository);
 	}
 
 	@Bean
@@ -91,12 +95,14 @@ public class LedgerConfig {
 	ImportService importService(
 			AccountRepository accountRepository,
 			TransactionRepository transactionRepository,
+			ImportBatchRepository importBatchRepository,
 			Map<AccountType, TransactionCsvParser> transactionCsvParsers,
 			Map<AccountType, TransactionFingerprintStrategy> transactionFingerprintStrategies,
 			TransactionClassifier transactionClassifier) {
 		return new ImportService(
 				accountRepository,
 				transactionRepository,
+				importBatchRepository,
 				transactionCsvParsers,
 				transactionFingerprintStrategies,
 				transactionClassifier);

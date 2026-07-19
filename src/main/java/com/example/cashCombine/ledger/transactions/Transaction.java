@@ -3,6 +3,7 @@ package com.example.cashCombine.ledger.transactions;
 import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.categorisation.CategoryAssignmentSource;
 import com.example.cashCombine.ledger.categorisation.CategoryId;
+import com.example.cashCombine.ledger.imports.ImportBatchId;
 import com.example.cashCombine.ledger.imports.ParsedTransactionRow;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,6 +12,7 @@ public class Transaction {
 
 	private final TransactionId id;
 	private final AccountId accountId;
+	private final ImportBatchId importBatchId;
 	private final LocalDate date;
 	private final BigDecimal amount;
 	private final String description;
@@ -21,6 +23,7 @@ public class Transaction {
 	private Transaction(
 			TransactionId id,
 			AccountId accountId,
+			ImportBatchId importBatchId,
 			LocalDate date,
 			BigDecimal amount,
 			String description,
@@ -29,6 +32,7 @@ public class Transaction {
 			CategoryAssignmentSource categoryAssignmentSource) {
 		this.id = id;
 		this.accountId = accountId;
+		this.importBatchId = importBatchId;
 		this.date = date;
 		this.amount = amount;
 		this.description = description;
@@ -38,12 +42,18 @@ public class Transaction {
 	}
 
 	public static Transaction create(AccountId accountId, ParsedTransactionRow row, CategoryId categoryId) {
+		return create(accountId, row, categoryId, null);
+	}
+
+	public static Transaction create(
+			AccountId accountId, ParsedTransactionRow row, CategoryId categoryId, ImportBatchId importBatchId) {
 		if (categoryId == null) {
 			throw new IllegalArgumentException("Category id is required");
 		}
 		return new Transaction(
 				TransactionId.generate(),
 				accountId,
+				importBatchId,
 				row.date(),
 				row.amount(),
 				row.description(),
@@ -55,6 +65,7 @@ public class Transaction {
 	public static Transaction reconstitute(
 			TransactionId id,
 			AccountId accountId,
+			ImportBatchId importBatchId,
 			LocalDate date,
 			BigDecimal amount,
 			String description,
@@ -62,7 +73,35 @@ public class Transaction {
 			CategoryId categoryId,
 			CategoryAssignmentSource categoryAssignmentSource) {
 		return new Transaction(
-				id, accountId, date, amount, description, balance, categoryId, categoryAssignmentSource);
+				id,
+				accountId,
+				importBatchId,
+				date,
+				amount,
+				description,
+				balance,
+				categoryId,
+				categoryAssignmentSource);
+	}
+
+	/** Assigns an import batch when backfilling legacy rows that pre-date batch tracking. */
+	public Transaction withImportBatchId(ImportBatchId importBatchId) {
+		if (importBatchId == null) {
+			throw new IllegalArgumentException("Import batch id is required");
+		}
+		if (this.importBatchId != null) {
+			throw new IllegalStateException("Transaction already belongs to an import batch");
+		}
+		return new Transaction(
+				id,
+				accountId,
+				importBatchId,
+				date,
+				amount,
+				description,
+				balance,
+				categoryId,
+				categoryAssignmentSource);
 	}
 
 	public void changeCategory(CategoryId newCategoryId) {
@@ -87,6 +126,10 @@ public class Transaction {
 
 	public AccountId accountId() {
 		return accountId;
+	}
+
+	public ImportBatchId importBatchId() {
+		return importBatchId;
 	}
 
 	public LocalDate date() {

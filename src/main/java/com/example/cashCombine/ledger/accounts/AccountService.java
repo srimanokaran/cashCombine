@@ -1,5 +1,6 @@
 package com.example.cashCombine.ledger.accounts;
 
+import com.example.cashCombine.ledger.imports.ImportBatchRepository;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -11,10 +12,15 @@ public class AccountService {
 
 	private final AccountRepository accountRepository;
 	private final TransactionRepository transactionRepository;
+	private final ImportBatchRepository importBatchRepository;
 
-	public AccountService(AccountRepository accountRepository, TransactionRepository transactionRepository) {
+	public AccountService(
+			AccountRepository accountRepository,
+			TransactionRepository transactionRepository,
+			ImportBatchRepository importBatchRepository) {
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
+		this.importBatchRepository = importBatchRepository;
 	}
 
 	public Account createAccount(String name, AccountType type) {
@@ -52,6 +58,7 @@ public class AccountService {
 			throw new AccountNotFoundException(id);
 		}
 		transactionRepository.deleteByAccountId(id);
+		importBatchRepository.deleteByAccountId(id);
 		accountRepository.deleteById(id);
 	}
 

@@ -2,6 +2,7 @@ package com.example.cashCombine.infrastructure.persistence;
 
 import com.example.cashCombine.ledger.accounts.AccountId;
 import com.example.cashCombine.ledger.categorisation.CategoryId;
+import com.example.cashCombine.ledger.imports.ImportBatchId;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprint;
 import com.example.cashCombine.ledger.transactions.TransactionId;
@@ -26,6 +27,7 @@ public class JpaTransactionRepository implements TransactionRepository {
 		TransactionJpaEntity entity = new TransactionJpaEntity(
 				transaction.id().value(),
 				transaction.accountId().value(),
+				transaction.importBatchId() == null ? null : transaction.importBatchId().value(),
 				transaction.date(),
 				transaction.amount(),
 				transaction.description(),
@@ -72,14 +74,28 @@ public class JpaTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	public boolean existsByAccountId(AccountId accountId) {
+		return jpaRepository.existsByAccountId(accountId.value());
+	}
+
+	@Override
 	public void deleteByAccountId(AccountId accountId) {
 		jpaRepository.deleteByAccountId(accountId.value());
 	}
 
+	@Override
+	public void deleteByImportBatchId(ImportBatchId importBatchId) {
+		jpaRepository.deleteByImportBatchId(importBatchId.value());
+	}
+
 	private Transaction toDomain(TransactionJpaEntity entity) {
+		ImportBatchId importBatchId =
+				entity.getImportBatchId() == null ? null : new ImportBatchId(entity.getImportBatchId());
 		return Transaction.reconstitute(
 				new TransactionId(entity.getId()),
 				new AccountId(entity.getAccountId()),
+				importBatchId,
 				entity.getDate(),
 				entity.getAmount(),
 				entity.getDescription(),

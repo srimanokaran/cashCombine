@@ -1,4 +1,4 @@
 package com.example.cashCombine.ledger.imports;
 
-public record ImportResult(int accepted, int duplicate, int rejected) {
+public record ImportResult(ImportBatchId id, int accepted, int duplicate, int rejected) {
 }

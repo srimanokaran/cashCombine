@@ -5,6 +5,7 @@ import com.example.cashCombine.ledger.categorisation.CategoryNotFoundException;
 import com.example.cashCombine.ledger.categorisation.DuplicateCategoryNameException;
 import com.example.cashCombine.ledger.categorisation.ProtectedCategoryException;
 import com.example.cashCombine.ledger.categorisation.RuleNotFoundException;
+import com.example.cashCombine.ledger.imports.ImportNotFoundException;
 import com.example.cashCombine.ledger.imports.InvalidCsvFormatException;
 import com.example.cashCombine.ledger.transactions.TransactionNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,8 @@ public class ApiExceptionHandler {
 		AccountNotFoundException.class,
 		CategoryNotFoundException.class,
 		TransactionNotFoundException.class,
-		RuleNotFoundException.class
+		RuleNotFoundException.class,
+		ImportNotFoundException.class
 	})
 	public ResponseEntity<ErrorResponse> notFound(RuntimeException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(ex.getMessage()));

@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
-import type { Account, Category, Transaction } from '../types'
+import type { Account, Category, ImportBatch, Transaction } from '../types'
+
+function formatImportedAt(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return date.toLocaleString()
+}
 
 export function AccountDetailPage() {
   const { id = '' } = useParams()
   const [account, setAccount] = useState<Account | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [imports, setImports] = useState<ImportBatch[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -15,14 +24,16 @@ export function AccountDetailPage() {
     setLoading(true)
     setError(null)
     try {
-      const [accountData, txData, categoryData] = await Promise.all([
+      const [accountData, txData, categoryData, importData] = await Promise.all([
         api.getAccount(id),
         api.listTransactions(id),
         api.listCategories(),
+        api.listImports(id),
       ])
       setAccount(accountData)
       setTransactions(txData)
       setCategories(categoryData)
+      setImports(importData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load account')
     } finally {
@@ -43,6 +54,24 @@ export function AccountDetailPage() {
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to change category')
+    }
+  }
+
+  async function onDeleteImport(batch: ImportBatch) {
+    const label = batch.filename ?? 'this import'
+    if (
+      !window.confirm(
+        `Delete ${label}? This removes ${batch.accepted} transaction${batch.accepted === 1 ? '' : 's'} from this upload.`,
+      )
+    ) {
+      return
+    }
+    setError(null)
+    try {
+      await api.deleteImport(id, batch.id)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete import')
     }
   }
 
@@ -79,6 +108,32 @@ export function AccountDetailPage() {
       </p>
 
       {error && <p className="error">{error}</p>}
+
+      <h2>Imports</h2>
+      {imports.length === 0 ? (
+        <p className="muted">
+          {account.hasImports
+            ? 'No tracked uploads yet. New CSV imports will appear here and can be deleted.'
+            : 'No imports yet.'}
+        </p>
+      ) : (
+        <ul className="list compact">
+          {imports.map((batch) => (
+            <li key={batch.id}>
+              <div>
+                <strong>{batch.filename ?? 'CSV upload'}</strong>
+                <span className="meta">
+                  {formatImportedAt(batch.importedAt)} · accepted {batch.accepted} · duplicate{' '}
+                  {batch.duplicate} · rejected {batch.rejected}
+                </span>
+              </div>
+              <button type="button" className="danger" onClick={() => void onDeleteImport(batch)}>
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2>Transactions</h2>
       {transactions.length === 0 ? (

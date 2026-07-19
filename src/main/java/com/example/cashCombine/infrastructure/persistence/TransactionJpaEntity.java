@@ -20,7 +20,10 @@ import java.util.UUID;
 				@UniqueConstraint(
 						name = "uk_transactions_fingerprint",
 						columnNames = {"account_id", "tx_date", "amount", "description", "balance"}),
-		indexes = @Index(name = "idx_transactions_account", columnList = "account_id"))
+		indexes = {
+			@Index(name = "idx_transactions_account", columnList = "account_id"),
+			@Index(name = "idx_transactions_import_batch", columnList = "import_batch_id")
+		})
 public class TransactionJpaEntity {
 
 	@Id
@@ -28,6 +31,9 @@ public class TransactionJpaEntity {
 
 	@Column(name = "account_id", nullable = false)
 	private UUID accountId;
+
+	@Column(name = "import_batch_id")
+	private UUID importBatchId;
 
 	@Column(name = "tx_date", nullable = false)
 	private LocalDate date;
@@ -54,6 +60,7 @@ public class TransactionJpaEntity {
 	public TransactionJpaEntity(
 			UUID id,
 			UUID accountId,
+			UUID importBatchId,
 			LocalDate date,
 			BigDecimal amount,
 			String description,
@@ -62,6 +69,7 @@ public class TransactionJpaEntity {
 			CategoryAssignmentSource categoryAssignmentSource) {
 		this.id = id;
 		this.accountId = accountId;
+		this.importBatchId = importBatchId;
 		this.date = date;
 		this.amount = amount;
 		this.description = description;
@@ -76,6 +84,10 @@ public class TransactionJpaEntity {
 
 	public UUID getAccountId() {
 		return accountId;
+	}
+
+	public UUID getImportBatchId() {
+		return importBatchId;
 	}
 
 	public LocalDate getDate() {

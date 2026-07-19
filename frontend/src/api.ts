@@ -3,6 +3,7 @@ import type {
   AccountType,
   Category,
   ExpenseDashboard,
+  ImportBatch,
   ImportResult,
   Rule,
   Transaction,
@@ -58,6 +59,10 @@ export const api = {
       body: form,
     })
   },
+  listImports: (accountId: string) =>
+    request<ImportBatch[]>(`/api/accounts/${accountId}/imports`),
+  deleteImport: (accountId: string, importId: string) =>
+    request<void>(`/api/accounts/${accountId}/imports/${importId}`, { method: 'DELETE' }),
   listTransactions: (accountId: string) =>
     request<Transaction[]>(`/api/accounts/${accountId}/transactions`),
   changeCategory: (transactionId: string, categoryId: string) =>

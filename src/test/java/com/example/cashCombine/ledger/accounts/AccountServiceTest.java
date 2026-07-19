@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.cashCombine.ledger.categorisation.Category;
+import com.example.cashCombine.ledger.imports.InMemoryImportBatchRepository;
 import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import java.util.List;
@@ -19,7 +20,8 @@ class AccountServiceTest {
 	void setUp() {
 		var accountRepository = new InMemoryAccountRepository();
 		transactionRepository = new InMemoryTransactionRepository();
-		accountService = new AccountService(accountRepository, transactionRepository);
+		accountService = new AccountService(
+				accountRepository, transactionRepository, new InMemoryImportBatchRepository());
 	}
 
 	@Test

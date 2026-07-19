@@ -15,11 +15,17 @@ public interface TransactionJpaRepository extends JpaRepository<TransactionJpaEn
 
 	List<TransactionJpaEntity> findByCategoryId(UUID categoryId);
 
+	boolean existsByAccountId(UUID accountId);
+
 	boolean existsByAccountIdAndDateAndAmountAndDescriptionAndBalance(
 			UUID accountId, LocalDate date, BigDecimal amount, String description, BigDecimal balance);
 
 	@Modifying(clearAutomatically = true)
 	@Query("delete from TransactionJpaEntity t where t.accountId = :accountId")
 	void deleteByAccountId(@Param("accountId") UUID accountId);
+
+	@Modifying(clearAutomatically = true)
+	@Query("delete from TransactionJpaEntity t where t.importBatchId = :importBatchId")
+	void deleteByImportBatchId(@Param("importBatchId") UUID importBatchId);
 
 }

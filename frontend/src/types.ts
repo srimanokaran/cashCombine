@@ -32,6 +32,17 @@ export interface Transaction {
 }
 
 export interface ImportResult {
+  id: string
+  accepted: number
+  duplicate: number
+  rejected: number
+}
+
+export interface ImportBatch {
+  id: string
+  accountId: string
+  filename: string | null
+  importedAt: string
   accepted: number
   duplicate: number
   rejected: number
