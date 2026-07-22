@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { AnimatedExpand } from '../components/AnimatedExpand'
 import type { Category, Rule } from '../types'
 
 const UNCATEGORISED = 'Uncategorised'
@@ -15,19 +16,18 @@ export function CategoriesRulesPage() {
   const [pattern, setPattern] = useState('')
   const [ruleCategoryId, setRuleCategoryId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [showRules, setShowRules] = useState(false)
+  const [rulesLoaded, setRulesLoaded] = useState(false)
+  const [rulesLoading, setRulesLoading] = useState(false)
 
   const targets = ruleTargetCategories(categories)
   const canAddRule = targets.length > 0 && ruleCategoryId !== ''
 
-  async function load(selectCategoryId?: string) {
+  async function loadCategories(selectCategoryId?: string) {
     setError(null)
     try {
-      const [categoryData, ruleData] = await Promise.all([
-        api.listCategories(),
-        api.listRules(),
-      ])
+      const categoryData = await api.listCategories()
       setCategories(categoryData)
-      setRules(ruleData)
 
       const available = ruleTargetCategories(categoryData)
       if (selectCategoryId && available.some((c) => c.id === selectCategoryId)) {
@@ -44,9 +44,31 @@ export function CategoriesRulesPage() {
     }
   }
 
+  async function loadRules() {
+    setRulesLoading(true)
+    setError(null)
+    try {
+      const ruleData = await api.listRules()
+      setRules(ruleData)
+      setRulesLoaded(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load rules')
+    } finally {
+      setRulesLoading(false)
+    }
+  }
+
   useEffect(() => {
-    void load()
+    void loadCategories()
   }, [])
+
+  async function onToggleRules() {
+    const next = !showRules
+    setShowRules(next)
+    if (next && !rulesLoaded) {
+      await loadRules()
+    }
+  }
 
   async function onCreateCategory(event: React.FormEvent) {
     event.preventDefault()
@@ -54,7 +76,7 @@ export function CategoriesRulesPage() {
     try {
       const created = await api.createCategory(categoryName.trim())
       setCategoryName('')
-      await load(created.id)
+      await loadCategories(created.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create category')
     }
@@ -69,7 +91,7 @@ export function CategoriesRulesPage() {
     try {
       await api.createRule(pattern.trim(), ruleCategoryId)
       setPattern('')
-      await load()
+      await loadRules()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create rule')
     }
@@ -82,7 +104,7 @@ export function CategoriesRulesPage() {
     setError(null)
     try {
       await api.deleteRule(rule.id)
-      await load()
+      await loadRules()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete rule')
     }
@@ -102,7 +124,12 @@ export function CategoriesRulesPage() {
     setError(null)
     try {
       await api.deleteCategory(category.id)
-      await load()
+      await loadCategories()
+      if (showRules) {
+        await loadRules()
+      } else {
+        setRulesLoaded(false)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete category')
     }
@@ -114,101 +141,123 @@ export function CategoriesRulesPage() {
 
   return (
     <section className="page">
-      <h1>Categories &amp; rules</h1>
+      <h1>Categories</h1>
       <p className="lede">
-        Contains-match rules assign categories on import. Manual overrides stay on re-import.
+        Name the buckets you spend and earn in. Changing a transaction’s category on Expenses also
+        creates a rule automatically.
       </p>
 
       {error && <p className="error">{error}</p>}
 
-      <div className="split">
-        <div className="panel">
-          <h2>Categories</h2>
-          <form className="row-form" onSubmit={onCreateCategory}>
-            <input
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              placeholder="Category name"
-              required
-            />
-            <button type="submit">Add</button>
-          </form>
-          <ul className="list compact">
-            {categories.map((category) => (
-              <li key={category.id}>
-                <span>{category.name}</span>
-                {category.name !== UNCATEGORISED && (
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => void onDeleteCategory(category)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="panel">
+        <h2>Categories</h2>
+        <form className="row-form" onSubmit={onCreateCategory}>
+          <input
+            value={categoryName}
+            onChange={(e) => setCategoryName(e.target.value)}
+            placeholder="Category name"
+            required
+          />
+          <button type="submit">Add</button>
+        </form>
+        <ul className="list compact">
+          {categories.map((category) => (
+            <li key={category.id}>
+              <span>{category.name}</span>
+              {category.name !== UNCATEGORISED && (
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => void onDeleteCategory(category)}
+                >
+                  Delete
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
 
-        <div className="panel">
-          <h2>Rules</h2>
-          <form className="stack-form" onSubmit={onCreateRule}>
-            <label className="field">
-              <span>Pattern</span>
-              <input
-                value={pattern}
-                onChange={(e) => setPattern(e.target.value)}
-                placeholder="Contains pattern (e.g. WOOLWORTHS)"
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Category</span>
-              <select
-                value={ruleCategoryId}
-                onChange={(e) => setRuleCategoryId(e.target.value)}
-                required
-                disabled={targets.length === 0}
-              >
-                <option value="" disabled>
-                  Select category…
-                </option>
-                {targets.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {targets.length === 0 && (
-              <p className="muted">Create a category first, then add a rule that maps a pattern to it.</p>
-            )}
-            <button type="submit" disabled={!canAddRule}>
-              Add rule
-            </button>
-          </form>
-          <ul className="list compact">
-            {rules.length === 0 ? (
-              <li className="muted">No rules yet.</li>
+      <div className="rules-reveal">
+        <button type="button" onClick={() => void onToggleRules()} aria-expanded={showRules}>
+          {showRules ? 'Hide classification rules' : 'Show classification rules'}
+        </button>
+        <p className="muted rules-reveal-hint">
+          Optional. Most rules come from seeds or from changing a category on a transaction.
+        </p>
+
+        <AnimatedExpand open={showRules}>
+          <div className="panel rules-panel">
+            <h2>Rules</h2>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Contains-match patterns assign categories on import. Longer patterns win over shorter
+              ones. Manual overrides stay on re-import.
+            </p>
+            {rulesLoading && !rulesLoaded ? (
+              <p className="lede">Loading rules…</p>
             ) : (
-              rules.map((rule) => (
-                <li key={rule.id}>
-                  <span>
-                    “{rule.pattern}” → {categoryLabel(rule.categoryId)}
-                  </span>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => void onDeleteRule(rule)}
-                  >
-                    Delete
+              <>
+                <form className="stack-form" onSubmit={onCreateRule}>
+                  <label className="field">
+                    <span>Pattern</span>
+                    <input
+                      value={pattern}
+                      onChange={(e) => setPattern(e.target.value)}
+                      placeholder="Contains pattern (e.g. WOOLWORTHS)"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Category</span>
+                    <select
+                      value={ruleCategoryId}
+                      onChange={(e) => setRuleCategoryId(e.target.value)}
+                      required
+                      disabled={targets.length === 0}
+                    >
+                      <option value="" disabled>
+                        Select category…
+                      </option>
+                      {targets.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {targets.length === 0 && (
+                    <p className="muted">
+                      Create a category first, then add a rule that maps a pattern to it.
+                    </p>
+                  )}
+                  <button type="submit" disabled={!canAddRule}>
+                    Add rule
                   </button>
-                </li>
-              ))
+                </form>
+                <ul className="list compact">
+                  {rules.length === 0 ? (
+                    <li className="muted">No rules yet.</li>
+                  ) : (
+                    rules.map((rule) => (
+                      <li key={rule.id}>
+                        <span>
+                          “{rule.pattern}” → {categoryLabel(rule.categoryId)}
+                        </span>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void onDeleteRule(rule)}
+                        >
+                          Delete
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </>
             )}
-          </ul>
-        </div>
+          </div>
+        </AnimatedExpand>
       </div>
     </section>
   )

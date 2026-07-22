@@ -78,7 +78,7 @@ npm run dev
 2. Upload a CommBank CSV export.
 3. Check **Expenses** / **Dashboard** for category breakdowns.
 4. Expand a category, reassign transactions as needed — each change saves a rule for that description.
-5. Optionally open **Categories & rules** to add patterns manually, or use **Re-analyse categories** after changing rules so existing imports catch up.
+5. Optionally open **Categories** (and **Show classification rules** if you need manual patterns), or use **Re-analyse categories** after changing rules so existing imports catch up.
 
 ### CommBank CSV shape
 
@@ -92,7 +92,7 @@ Four columns per row: date, amount, description, balance (quoted fields supporte
 | `/accounts/:id` | Account transactions, imports, delete an import batch |
 | `/expenses` | Spending & income by category (expand + reassign) |
 | `/dashboard` | Pie charts for spend and income |
-| `/categories` | Manage categories and classification rules |
+| `/categories` | Manage categories; classification rules are behind **Show classification rules** |
 
 ## Categorisation behaviour
 

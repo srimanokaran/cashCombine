@@ -17,7 +17,7 @@ function App() {
           </NavLink>
           <NavLink to="/dashboard">Dashboard</NavLink>
           <NavLink to="/expenses">Expenses</NavLink>
-          <NavLink to="/categories">Categories &amp; rules</NavLink>
+          <NavLink to="/categories">Categories</NavLink>
         </nav>
       </header>
       <main>
