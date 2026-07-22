@@ -13,7 +13,7 @@ Built for personal use (and as a backend engineering practice project) — not a
 - **Manual overrides** — change a transaction’s category; that creates/updates a rule and re-applies it to matching non-manual transactions
 - **Re-analyse** — re-run rules on existing imports without deleting uploads (manual overrides are kept)
 - **Expenses** — spending and income breakdowns by category, with drill-down into transactions
-- **Dashboard** — pie-chart view of spending and income
+- **Dashboard** — Recharts pie breakdown of spending and income
 - **Special categories**
   - **Funds between accounts** — internal transfers (e.g. savings moves, ING→CommBank, cash→credit-card payments) excluded from spend/income totals
   - **Income** / **Uncategorised** credits count as income; credits filed under an expense category (e.g. a friend paying you back under Entertainment) net against that category’s spend
@@ -25,7 +25,7 @@ Built for personal use (and as a backend engineering practice project) — not a
 |---|---|
 | Backend | Java 17, Spring Boot, JPA/Hibernate |
 | Database | SQLite (`cashcombine.db` in the project root) |
-| Frontend | React 19, TypeScript, Vite, React Router |
+| Frontend | React 19, TypeScript, Vite, React Router, Recharts |
 | Tests | JUnit 5, AssertJ; `make testAll` / Gradle |
 
 ## Prerequisites
