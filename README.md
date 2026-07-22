@@ -134,6 +134,14 @@ Or directly:
 ./gradlew integrationTest
 ```
 
+### CI
+
+Pushes and pull requests to `main` run [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
+
+- Backend unit tests (`./gradlew unitTest`)
+- Backend integration tests (`./gradlew integrationTest`)
+- Frontend typecheck & build (`npm run build`)
+
 ## Project layout
 
 ```text
