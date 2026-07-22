@@ -153,6 +153,132 @@ class LedgerApiIntegrationTest {
 		mockMvc.perform(delete("/api/categories/" + uncategorisedId)).andExpect(status().isConflict());
 	}
 
+	@Test
+	void importsNabCreditCardCsvThroughApi() throws Exception {
+		MvcResult accountResult = mockMvc.perform(post("/api/accounts")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Qantas Money\",\"type\":\"NAB_CREDIT_CARD\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.type").value("NAB_CREDIT_CARD"))
+				.andReturn();
+		String accountId = readJsonField(accountResult, "id");
+
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "qantas-money-sample.csv", "text/csv", classpathBytes("/csv/qantas-money-sample.csv"));
+
+		mockMvc.perform(multipart("/api/accounts/" + accountId + "/import").file(file))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accepted").value(6))
+				.andExpect(jsonPath("$.duplicate").value(1))
+				.andExpect(jsonPath("$.rejected").value(0));
+
+		MvcResult txResult = mockMvc.perform(get("/api/accounts/" + accountId + "/transactions"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(6))
+				.andReturn();
+
+		String body = txResult.getResponse().getContentAsString();
+		assertThat(body).contains("WOOLWORTHS 1234 FAKETOWN");
+		assertThat(body).contains("BPAY PAYMENT - THANK YOU");
+		assertThat(body).contains(categoryIdByName("Groceries"));
+	}
+
+	@Test
+	void dashboardCountsCardMerchantsAndExcludesCashCardPayments() throws Exception {
+		String groceriesId = categoryIdByName("Groceries");
+		String fundsId = categoryIdByName("Funds between accounts");
+
+		MvcResult cashResult = mockMvc.perform(post("/api/accounts")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Everyday\",\"type\":\"COMMBANK\"}"))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String cashAccountId = readJsonField(cashResult, "id");
+
+		byte[] cashCsv = """
+				15/07/2026,"-6000.00","Qantas Credit Cards CommBank app BPAY 000000 0000000000000000 Bill","+100.00"
+				08/07/2026,"-20.00","COLES 0001 FAKETOWN VIC","+6120.00"
+				""".getBytes(StandardCharsets.UTF_8);
+		mockMvc.perform(multipart("/api/accounts/" + cashAccountId + "/import")
+						.file(new MockMultipartFile("file", "commbank.csv", "text/csv", cashCsv)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accepted").value(2));
+
+		MvcResult cardResult = mockMvc.perform(post("/api/accounts")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Qantas Money\",\"type\":\"NAB_CREDIT_CARD\"}"))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String cardAccountId = readJsonField(cardResult, "id");
+
+		byte[] cardCsv = """
+				Date,Amount,Account Number,,Transaction Type,Transaction Details,Category,Merchant Name,Processed On
+				10 July 26,-45.00,Card ending 9999,,CREDIT CARD PURCHASE,WOOLWORTHS 9999 TESTTOWN,Groceries,Woolworths,10 July 26
+				09 July 26,-25.00,Card ending 9999,,CREDIT CARD PURCHASE,EXAMPLE CAFE TESTTOWN,Restaurants,Example Cafe,09 July 26
+				""".getBytes(StandardCharsets.UTF_8);
+		mockMvc.perform(multipart("/api/accounts/" + cardAccountId + "/import")
+						.file(new MockMultipartFile("file", "card.csv", "text/csv", cardCsv)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accepted").value(2));
+
+		MvcResult cashTx = mockMvc.perform(get("/api/accounts/" + cashAccountId + "/transactions"))
+				.andExpect(status().isOk())
+				.andReturn();
+		String cashBody = cashTx.getResponse().getContentAsString();
+		assertThat(cashBody).contains(fundsId);
+		assertThat(extractCategoryIdForDescription(cashBody, "Qantas Credit Cards")).isEqualTo(fundsId);
+		assertThat(extractCategoryIdForDescription(cashBody, "COLES")).isEqualTo(groceriesId);
+
+		MvcResult dashboard = mockMvc.perform(get("/api/dashboard/expenses"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalExpenses").value(90.0))
+				.andExpect(jsonPath("$.expenseTransactionCount").value(3))
+				.andExpect(jsonPath("$.categories[?(@.categoryName=='Funds between accounts')]").isEmpty())
+				.andExpect(jsonPath("$.categories[?(@.categoryName=='Credit cards')]").isEmpty())
+				.andReturn();
+
+		String dashboardBody = dashboard.getResponse().getContentAsString();
+		assertThat(dashboardBody).contains("\"categoryName\":\"Groceries\"");
+		assertThat(dashboardBody).contains("\"amount\":65.00");
+	}
+
+	@Test
+	void reimportingSameCsvThroughApiIsIdempotent() throws Exception {
+		MvcResult accountResult = mockMvc.perform(post("/api/accounts")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"Everyday\",\"type\":\"COMMBANK\"}"))
+				.andExpect(status().isCreated())
+				.andReturn();
+		String accountId = readJsonField(accountResult, "id");
+
+		byte[] csv = """
+				10/07/2026,"-45.00","WOOLWORTHS 1234 FAKETOWN VIC AUS","+2455.00"
+				10/07/2026,"-12.50","CAFE EXAMPLE BLEND FAKETOWN AUS","+2467.50"
+				""".getBytes(StandardCharsets.UTF_8);
+		MockMultipartFile first = new MockMultipartFile("file", "sample.csv", "text/csv", csv);
+		MockMultipartFile second = new MockMultipartFile("file", "sample-again.csv", "text/csv", csv);
+
+		mockMvc.perform(multipart("/api/accounts/" + accountId + "/import").file(first))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accepted").value(2))
+				.andExpect(jsonPath("$.duplicate").value(0))
+				.andExpect(jsonPath("$.rejected").value(0));
+
+		mockMvc.perform(multipart("/api/accounts/" + accountId + "/import").file(second))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accepted").value(0))
+				.andExpect(jsonPath("$.duplicate").value(2))
+				.andExpect(jsonPath("$.rejected").value(0));
+
+		mockMvc.perform(get("/api/accounts/" + accountId + "/transactions"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(2));
+
+		mockMvc.perform(get("/api/accounts/" + accountId + "/imports"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(2));
+	}
+
 	private String categoryIdByName(String name) throws Exception {
 		MvcResult result = mockMvc.perform(get("/api/categories")).andExpect(status().isOk()).andReturn();
 		String json = result.getResponse().getContentAsString();
@@ -182,6 +308,23 @@ class LedgerApiIntegrationTest {
 		int idStart = jsonArray.indexOf(marker, objectStart) + marker.length();
 		int idEnd = jsonArray.indexOf('"', idStart);
 		return jsonArray.substring(idStart, idEnd);
+	}
+
+	private static String extractCategoryIdForDescription(String jsonArray, String descriptionFragment) {
+		int descIndex = jsonArray.indexOf(descriptionFragment);
+		assertThat(descIndex).as("description containing %s", descriptionFragment).isPositive();
+		int objectStart = jsonArray.lastIndexOf('{', descIndex);
+		String marker = "\"categoryId\":\"";
+		int idStart = jsonArray.indexOf(marker, objectStart) + marker.length();
+		int idEnd = jsonArray.indexOf('"', idStart);
+		return jsonArray.substring(idStart, idEnd);
+	}
+
+	private static byte[] classpathBytes(String path) throws Exception {
+		try (var stream = LedgerApiIntegrationTest.class.getResourceAsStream(path)) {
+			assertThat(stream).as("classpath resource %s", path).isNotNull();
+			return stream.readAllBytes();
+		}
 	}
 
 }
