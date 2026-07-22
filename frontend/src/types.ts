@@ -63,28 +63,6 @@ export interface ExpenseTransaction {
   date: string
   amount: number
   description: string
-  cardBreakdownAvailable: boolean
-}
-
-export interface CardPaymentMerchant {
-  id: string
-  accountId: string
-  accountName: string
-  date: string
-  amount: number
-  description: string
-  categoryId: string
-  categoryName: string
-}
-
-export interface CardPaymentBreakdown {
-  paymentId: string
-  paymentDate: string
-  paymentAmount: number
-  windowStartExclusive: string | null
-  windowEndInclusive: string
-  merchantNet: number
-  merchants: CardPaymentMerchant[]
 }
 
 export interface ExpenseDashboard {

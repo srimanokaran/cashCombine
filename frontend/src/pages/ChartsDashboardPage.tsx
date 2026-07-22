@@ -62,10 +62,7 @@ export function ChartsDashboardPage() {
       <div className="page-heading">
         <div>
           <h1>Dashboard</h1>
-          <p className="lede">
-            Pie breakdown of spending and income from cash accounts (credit-card detail is
-            advisory and excluded from totals).
-          </p>
+          <p className="lede">Pie breakdown of spending and income across accounts.</p>
         </div>
       </div>
 

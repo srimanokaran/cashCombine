@@ -689,49 +689,6 @@ td .meta {
   animation: spend-row-in 220ms ease both;
 }
 
-.spend-tx-description {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-.spend-breakdown-toggle {
-  font-size: 0.78rem;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent, #7a73ff);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.spend-breakdown-toggle:hover {
-  text-decoration: underline;
-}
-
-.spend-card-breakdown-row td {
-  padding-top: 0.15rem;
-  padding-bottom: 0.85rem;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.spend-card-breakdown {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0.35rem 0.25rem 0.15rem;
-}
-
-.spend-card-breakdown-meta {
-  margin: 0;
-  font-size: 0.8rem;
-}
-
-.spend-card-breakdown-table {
-  width: 100%;
-  font-size: 0.82rem;
-}
-
 .spend-detail-loading {
   display: grid;
   gap: 0.45rem;

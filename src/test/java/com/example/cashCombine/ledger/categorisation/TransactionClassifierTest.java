@@ -79,4 +79,14 @@ class TransactionClassifierTest {
 		assertThat(classifier.classify("Direct Credit ACME REFUND")).isEqualTo(uncategorised.id());
 	}
 
+	@Test
+	void classifiesQantasCreditCardBpayAsFundsBetweenAccounts() {
+		Category funds = Category.create(Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
+		ruleRepository.save(ClassificationRule.create("Qantas Credit Cards", funds.id()));
+
+		assertThat(classifier.classify(
+						"Qantas Credit Cards CommBank app BPAY 000000 0000000000000000 Bill"))
+				.isEqualTo(funds.id());
+	}
+
 }

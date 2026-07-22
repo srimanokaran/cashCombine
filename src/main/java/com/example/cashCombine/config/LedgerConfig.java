@@ -11,7 +11,6 @@ import com.example.cashCombine.ledger.categorisation.CategoryService;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
 import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
-import com.example.cashCombine.ledger.dashboard.CreditCardPaymentBreakdownService;
 import com.example.cashCombine.ledger.dashboard.DashboardService;
 import com.example.cashCombine.ledger.imports.CommBankCsvParser;
 import com.example.cashCombine.ledger.imports.ImportBatchRepository;
@@ -75,15 +74,6 @@ public class LedgerConfig {
 			CategoryRepository categoryRepository,
 			AccountRepository accountRepository) {
 		return new DashboardService(transactionRepository, categoryRepository, accountRepository);
-	}
-
-	@Bean
-	CreditCardPaymentBreakdownService creditCardPaymentBreakdownService(
-			TransactionRepository transactionRepository,
-			CategoryRepository categoryRepository,
-			AccountRepository accountRepository) {
-		return new CreditCardPaymentBreakdownService(
-				transactionRepository, categoryRepository, accountRepository);
 	}
 
 	@Bean

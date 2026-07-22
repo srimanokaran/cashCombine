@@ -2,7 +2,7 @@
 
 Personal finance ledger for consolidating bank CSV exports into one place: import transactions, detect duplicates, categorise with rules, and see spending and income clearly.
 
-Built for personal use (and as a backend engineering practice project) — not a multi-tenant SaaS product. See [goal.md](./goal.md) for the longer-term vision and [domain-notes.md](./domain-notes.md) for domain decisions.
+Built for personal use (and as a backend engineering practice project) — not a multi-tenant SaaS product. See [goal.md](./goal.md) for the longer-term vision, [domain-notes.md](./domain-notes.md) for domain decisions, and [architectural-decisions/](./architectural-decisions/) for ADRs.
 
 ## What it does today
 
@@ -15,9 +15,9 @@ Built for personal use (and as a backend engineering practice project) — not a
 - **Expenses** — spending and income breakdowns by category, with drill-down into transactions
 - **Dashboard** — pie-chart view of spending and income
 - **Special categories**
-  - **Funds between accounts** — internal transfers (e.g. savings moves, ING→CommBank) excluded from spend/income totals
+  - **Funds between accounts** — internal transfers (e.g. savings moves, ING→CommBank, cash→credit-card payments) excluded from spend/income totals
   - **Income** / **Uncategorised** credits count as income; credits filed under an expense category (e.g. a friend paying you back under Entertainment) net against that category’s spend
-- **Advisory credit cards** — NAB/Qantas Money merchants do not count toward Expenses totals. Expand a CommBank **Credit cards** payment on Expenses to see an auto merchant breakdown (card spend after the previous cash payment through this payment’s date)
+- **Credit cards** — NAB/Qantas Money merchants count toward Expenses by category; CommBank card payments are funds between accounts (not a lump “Credit cards” spend)
 
 ## Stack
 
@@ -150,6 +150,7 @@ src/main/java/.../cashCombine/
 frontend/           # React SPA
 scripts/            # run-backend, test helpers
 domain-notes.md     # domain decisions
+architectural-decisions/  # ADRs (e.g. credit-card spend model)
 goal.md             # product vision
 ```
 
@@ -163,4 +164,5 @@ goal.md             # product vision
 
 - [goal.md](./goal.md) — vision, MVP scope, future ideas
 - [domain-notes.md](./domain-notes.md) — Slice 1 domain Q&A and invariants
+- [architectural-decisions/](./architectural-decisions/) — accepted architecture/product decisions
 - [backend-review.md](./backend-review.md) — backend review findings (if present locally)

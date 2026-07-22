@@ -177,34 +177,28 @@ class DashboardServiceTest {
 	}
 
 	@Test
-	void excludesAdvisoryCreditCardTransactionsFromTotalsAndLists() {
-		Category creditCards = categoryRepository.save(Category.create("Credit cards"));
+	void cardMerchantsCountTowardExpensesWhileCashCardPaymentsAreExcluded() {
+		Category funds = fundsBetweenAccounts;
 		Account card = accountRepository.save(Account.create("Qantas Money", AccountType.NAB_CREDIT_CARD));
 
-		// Cash-account card payment counts once.
-		save(everyday.id(), "-6000.00", creditCards, "Qantas Credit Cards BPAY", LocalDate.of(2026, 7, 15));
-		// Same spend broken down on the card — advisory only.
-		save(card.id(), "-45.00", groceries, "WOOLWORTHS 3762", LocalDate.of(2026, 7, 10));
+		// Cash→card payment is a transfer — not spend.
+		save(everyday.id(), "-6000.00", funds, "Qantas Credit Cards BPAY", LocalDate.of(2026, 7, 15));
+		// Merchants on the card are the real spend.
+		save(card.id(), "-45.00", groceries, "WOOLWORTHS 1234", LocalDate.of(2026, 7, 10));
 		save(card.id(), "-25.00", dining, "CAFE", LocalDate.of(2026, 7, 9));
 		save(everyday.id(), "-20.00", groceries, "COLES", LocalDate.of(2026, 7, 8));
 
 		ExpenseDashboard dashboard = dashboardService.expenseBreakdown();
 
-		assertThat(dashboard.totalExpenses()).isEqualByComparingTo("6020.00");
-		assertThat(dashboard.expenseTransactionCount()).isEqualTo(2);
+		assertThat(dashboard.totalExpenses()).isEqualByComparingTo("90.00");
+		assertThat(dashboard.expenseTransactionCount()).isEqualTo(3);
 		assertThat(dashboard.categories()).extracting(CategorySpend::categoryName)
-				.containsExactly("Credit cards", "Groceries");
-		assertThat(dashboard.categories().get(0).amount()).isEqualByComparingTo("6000.00");
-		assertThat(dashboard.categories().get(1).amount()).isEqualByComparingTo("20.00");
+				.containsExactly("Groceries", "Dining");
+		assertThat(dashboard.categories().get(0).amount()).isEqualByComparingTo("65.00");
+		assertThat(dashboard.categories().get(1).amount()).isEqualByComparingTo("25.00");
 
-		assertThat(dashboardService.expenseTransactions(groceries.id())).hasSize(1);
-		assertThat(dashboardService.expenseTransactions(groceries.id()).get(0).description()).isEqualTo("COLES");
-		assertThat(dashboardService.expenseTransactions(dining.id())).isEmpty();
-
-		ExpenseTransaction payment = dashboardService.expenseTransactions(creditCards.id()).get(0);
-		assertThat(payment.cardBreakdownAvailable()).isTrue();
-		assertThat(dashboardService.expenseTransactions(groceries.id()).get(0).cardBreakdownAvailable())
-				.isFalse();
+		assertThat(dashboardService.expenseTransactions(groceries.id())).hasSize(2);
+		assertThat(dashboardService.expenseTransactions(dining.id())).hasSize(1);
 	}
 
 	private void save(

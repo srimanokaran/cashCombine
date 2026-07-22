@@ -11,6 +11,5 @@ public record ExpenseTransaction(
 		String accountName,
 		LocalDate date,
 		BigDecimal amount,
-		String description,
-		boolean cardBreakdownAvailable) {
+		String description) {
 }

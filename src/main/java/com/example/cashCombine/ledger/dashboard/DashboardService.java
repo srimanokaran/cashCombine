@@ -14,10 +14,8 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional(readOnly = true)
@@ -37,25 +35,21 @@ public class DashboardService {
 	}
 
 	/**
-	 * Aggregates cashflow across cash accounts by category.
+	 * Aggregates cashflow across all accounts by category.
 	 * <p>
 	 * Credits in Income or Uncategorised count as income. Credits filed under a named expense
 	 * category (e.g. Entertainment) reduce that category's spend instead. Funds-between-accounts
-	 * moves and advisory credit-card accounts are omitted from both sides (card spend is detail
-	 * only; the cash-account card payment is the P&L event).
+	 * moves (including cash→card payments) are omitted from both sides. Credit-card merchants
+	 * count as normal spend.
 	 */
 	public ExpenseDashboard expenseBreakdown() {
 		Map<CategoryId, Category> categoriesById = categoriesById();
-		Set<AccountId> advisoryAccountIds = advisoryAccountIds();
 		Map<CategoryId, BigDecimal> expenseNets = new HashMap<>();
 		Map<CategoryId, Integer> expenseCounts = new HashMap<>();
 		Map<CategoryId, BigDecimal> incomeTotals = new HashMap<>();
 		Map<CategoryId, Integer> incomeCounts = new HashMap<>();
 
 		for (Transaction transaction : transactionRepository.findAll()) {
-			if (advisoryAccountIds.contains(transaction.accountId())) {
-				continue;
-			}
 			Category category = categoriesById.get(transaction.categoryId());
 			if (category == null || category.isExcludedFromExpenses()) {
 				continue;
@@ -127,23 +121,13 @@ public class DashboardService {
 
 	private List<ExpenseTransaction> listTransactions(CategoryId categoryId, ListMode mode) {
 		Map<AccountId, String> accountNames = new HashMap<>();
-		Set<AccountId> advisoryAccountIds = new HashSet<>();
 		for (Account account : accountRepository.findAll()) {
 			accountNames.put(account.id(), account.name());
-			if (account.type().isAdvisory()) {
-				advisoryAccountIds.add(account.id());
-			}
 		}
-		Category listedCategory = categoryRepository.findById(categoryId).orElse(null);
-		boolean creditCardsCategory = listedCategory != null && listedCategory.isCreditCards();
-		boolean hasAdvisoryAccounts = !advisoryAccountIds.isEmpty();
 
 		List<ExpenseTransaction> rows = new ArrayList<>();
 		for (Transaction transaction : transactionRepository.findAll()) {
 			if (!transaction.categoryId().equals(categoryId)) {
-				continue;
-			}
-			if (advisoryAccountIds.contains(transaction.accountId())) {
 				continue;
 			}
 			int sign = transaction.amount().signum();
@@ -153,32 +137,19 @@ public class DashboardService {
 			if (mode == ListMode.EXPENSE_ONLY && sign >= 0) {
 				continue;
 			}
-			boolean cardBreakdownAvailable =
-					creditCardsCategory && hasAdvisoryAccounts && sign < 0;
 			rows.add(new ExpenseTransaction(
 					transaction.id(),
 					transaction.accountId(),
 					accountNames.getOrDefault(transaction.accountId(), "Unknown"),
 					transaction.date(),
 					transaction.amount().setScale(2, RoundingMode.HALF_UP),
-					transaction.description(),
-					cardBreakdownAvailable));
+					transaction.description()));
 		}
 
 		rows.sort(Comparator.comparing(ExpenseTransaction::date)
 				.reversed()
 				.thenComparing(ExpenseTransaction::description));
 		return List.copyOf(rows);
-	}
-
-	private Set<AccountId> advisoryAccountIds() {
-		Set<AccountId> ids = new HashSet<>();
-		for (Account account : accountRepository.findAll()) {
-			if (account.type().isAdvisory()) {
-				ids.add(account.id());
-			}
-		}
-		return ids;
 	}
 
 	private Breakdown toExpenseBreakdown(

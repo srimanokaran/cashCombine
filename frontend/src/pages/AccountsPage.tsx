@@ -106,9 +106,8 @@ export function AccountsPage() {
             )}
             {selected?.type === 'NAB_CREDIT_CARD' && importSupported && (
               <p className="muted" style={{ marginTop: '0.85rem', marginBottom: 0 }}>
-                Use Export → CSV from qantasmoney.com (not the PDF statement). Merchants feed the
-                breakdown under each CommBank Credit cards payment on Expenses (auto window since
-                the previous payment).
+                Use Export → CSV from qantasmoney.com (not the PDF statement). Merchants count toward
+                Expenses by category; CommBank card payments are treated as funds between accounts.
               </p>
             )}
           </div>

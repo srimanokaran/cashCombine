@@ -41,7 +41,6 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 			"Shopping",
 			"Utilities",
 			"Health",
-			Category.CREDIT_CARDS_NAME,
 			"Rent",
 			Category.FUNDS_BETWEEN_ACCOUNTS_NAME,
 			Category.INCOME_NAME);
@@ -76,6 +75,7 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 	public void run(ApplicationArguments args) {
 		renameStreamingToSubscription();
 		mergeHomeIntoUtilities();
+		mergeCreditCardsIntoFundsBetweenAccounts();
 
 		Map<String, Category> categoriesByName = new LinkedHashMap<>();
 		for (String name : CATEGORIES) {
@@ -183,6 +183,52 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 				movedRules);
 	}
 
+	/**
+	 * Card payments from cash accounts are transfers, not spend. Merchant detail lives on the
+	 * credit-card account and counts toward Expenses by category.
+	 */
+	private void mergeCreditCardsIntoFundsBetweenAccounts() {
+		Optional<Category> creditCards = categoryRepository.findByName("Credit cards");
+		if (creditCards.isEmpty()) {
+			return;
+		}
+
+		Category funds = categoryRepository
+				.findByName(Category.FUNDS_BETWEEN_ACCOUNTS_NAME)
+				.orElseGet(() -> categoryRepository.save(Category.create(Category.FUNDS_BETWEEN_ACCOUNTS_NAME)));
+
+		Category creditCardsCategory = creditCards.get();
+		int movedTransactions = 0;
+		for (Transaction transaction : transactionRepository.findByCategoryId(creditCardsCategory.id())) {
+			transaction.reassignCategory(funds.id());
+			transactionRepository.save(transaction);
+			movedTransactions++;
+		}
+
+		Set<String> fundsPatterns = ruleRepository.findAll().stream()
+				.filter(rule -> rule.categoryId().equals(funds.id()))
+				.map(rule -> rule.pattern().toLowerCase(Locale.ROOT))
+				.collect(Collectors.toSet());
+
+		int movedRules = 0;
+		for (ClassificationRule rule : List.copyOf(ruleRepository.findAll())) {
+			if (!rule.categoryId().equals(creditCardsCategory.id())) {
+				continue;
+			}
+			ruleRepository.deleteById(rule.id());
+			if (!fundsPatterns.contains(rule.pattern().toLowerCase(Locale.ROOT))) {
+				ruleRepository.save(ClassificationRule.create(rule.pattern(), funds.id()));
+				movedRules++;
+			}
+		}
+
+		categoryRepository.deleteById(creditCardsCategory.id());
+		log.info(
+				"Merged Credit cards into Funds between accounts ({} transactions, {} rules)",
+				movedTransactions,
+				movedRules);
+	}
+
 	private int removeObsoleteRules() {
 		int removed = 0;
 		for (ClassificationRule rule : ruleRepository.findAll()) {
@@ -233,7 +279,7 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("CHEMIST", "Health");
 		rules.put("PHARMACY", "Health");
 		rules.put("Top Gym", "Health");
-		rules.put("Qantas Credit Cards", Category.CREDIT_CARDS_NAME);
+		rules.put("Qantas Credit Cards", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		rules.put("Transfer To Landlord", "Rent");
 		rules.put("CommBank App Savings", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		// Spaces avoid matching substrings like SHOPPING.

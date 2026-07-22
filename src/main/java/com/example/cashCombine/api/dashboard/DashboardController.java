@@ -2,9 +2,7 @@ package com.example.cashCombine.api.dashboard;
 
 import com.example.cashCombine.ledger.categorisation.CategoryId;
 import com.example.cashCombine.ledger.categorisation.CategoryReanalysisService;
-import com.example.cashCombine.ledger.dashboard.CreditCardPaymentBreakdownService;
 import com.example.cashCombine.ledger.dashboard.DashboardService;
-import com.example.cashCombine.ledger.transactions.TransactionId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,15 +17,11 @@ public class DashboardController {
 
 	private final DashboardService dashboardService;
 	private final CategoryReanalysisService categoryReanalysisService;
-	private final CreditCardPaymentBreakdownService creditCardPaymentBreakdownService;
 
 	public DashboardController(
-			DashboardService dashboardService,
-			CategoryReanalysisService categoryReanalysisService,
-			CreditCardPaymentBreakdownService creditCardPaymentBreakdownService) {
+			DashboardService dashboardService, CategoryReanalysisService categoryReanalysisService) {
 		this.dashboardService = dashboardService;
 		this.categoryReanalysisService = categoryReanalysisService;
-		this.creditCardPaymentBreakdownService = creditCardPaymentBreakdownService;
 	}
 
 	@GetMapping("/expenses")
@@ -47,12 +41,6 @@ public class DashboardController {
 		return dashboardService.incomeTransactions(new CategoryId(categoryId)).stream()
 				.map(ExpenseTransactionResponse::from)
 				.toList();
-	}
-
-	@GetMapping("/transactions/{transactionId}/card-breakdown")
-	public CardPaymentBreakdownResponse cardPaymentBreakdown(@PathVariable UUID transactionId) {
-		return CardPaymentBreakdownResponse.from(
-				creditCardPaymentBreakdownService.breakdown(new TransactionId(transactionId)));
 	}
 
 	@PostMapping("/expenses/reanalyse")

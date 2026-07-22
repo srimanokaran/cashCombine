@@ -3,13 +3,7 @@ import { api } from '../api'
 import { AnimatedExpand } from '../components/AnimatedExpand'
 import { CategoryPicker } from '../components/CategoryPicker'
 import { formatDate, formatMoney } from '../format'
-import type {
-  CardPaymentBreakdown,
-  Category,
-  CategorySpend,
-  ExpenseDashboard,
-  ExpenseTransaction,
-} from '../types'
+import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
 
 const BAR_COLORS = ['#7a73ff', '#2dd4bf', '#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399']
 const INCOME_BAR_COLORS = ['#34d399', '#2dd4bf', '#a3e635', '#38bdf8', '#fbbf24']
@@ -170,11 +164,10 @@ export function DashboardPage() {
         <div>
           <h1>Expenses</h1>
           <p className="lede">
-            Spending and income from cash accounts, grouped by category. Credit-card payments under
-            Credit cards can be expanded for an auto merchant breakdown (card CSV between the
-            previous payment and this one). Credits in Income or Uncategorised show under income;
-            put a refund or payback under an expense category (e.g. Entertainment) to cancel that
-            spend. Changing a category also creates a rule.
+            Spending and income across accounts, grouped by category. Credit-card merchants count as
+            normal spend; cash→card payments are funds between accounts (excluded). Credits in Income
+            or Uncategorised show under income; put a refund or payback under an expense category
+            (e.g. Entertainment) to cancel that spend. Changing a category also creates a rule.
           </p>
         </div>
         <button type="button" onClick={() => void onReanalyse()} disabled={reanalysing || loading}>
@@ -432,15 +425,35 @@ function SpendCategoryItem({
                 </thead>
                 <tbody>
                   {detailTxs.map((tx, txIndex) => (
-                    <ExpenseTransactionRows
+                    <tr
                       key={tx.id}
-                      tx={tx}
-                      txIndex={txIndex}
-                      categoryId={row.categoryId}
-                      categories={categories}
-                      changingCategoryId={changingCategoryId}
-                      onChangeCategory={onChangeCategory}
-                    />
+                      className="spend-detail-row"
+                      style={{ animationDelay: `${Math.min(txIndex, 8) * 30}ms` }}
+                    >
+                      <td>{formatDate(tx.date)}</td>
+                      <td>{tx.accountName}</td>
+                      <td>{tx.description}</td>
+                      <td
+                        className={
+                          Number(tx.amount) < 0
+                            ? 'negative'
+                            : Number(tx.amount) > 0
+                              ? 'positive'
+                              : undefined
+                        }
+                      >
+                        {formatMoney(tx.amount)}
+                      </td>
+                      <td>
+                        <CategoryPicker
+                          categories={categories}
+                          value={row.categoryId}
+                          disabled={changingCategoryId === tx.id}
+                          ariaLabel={`Category for ${tx.description}`}
+                          onChange={(categoryId) => onChangeCategory(tx.id, categoryId)}
+                        />
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -449,146 +462,6 @@ function SpendCategoryItem({
         </div>
       </AnimatedExpand>
     </li>
-  )
-}
-
-function ExpenseTransactionRows({
-  tx,
-  txIndex,
-  categoryId,
-  categories,
-  changingCategoryId,
-  onChangeCategory,
-}: {
-  tx: ExpenseTransaction
-  txIndex: number
-  categoryId: string
-  categories: Category[]
-  changingCategoryId: string | null
-  onChangeCategory: (transactionId: string, categoryId: string) => void | Promise<void>
-}) {
-  const [open, setOpen] = useState(false)
-  const [breakdown, setBreakdown] = useState<CardPaymentBreakdown | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function toggleBreakdown() {
-    if (open) {
-      setOpen(false)
-      return
-    }
-    setOpen(true)
-    if (breakdown) {
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      setBreakdown(await api.getCardPaymentBreakdown(tx.id))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load card breakdown')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <>
-      <tr
-        className="spend-detail-row"
-        style={{ animationDelay: `${Math.min(txIndex, 8) * 30}ms` }}
-      >
-        <td>{formatDate(tx.date)}</td>
-        <td>{tx.accountName}</td>
-        <td>
-          <div className="spend-tx-description">
-            <span>{tx.description}</span>
-            {tx.cardBreakdownAvailable && (
-              <button
-                type="button"
-                className="spend-breakdown-toggle"
-                aria-expanded={open}
-                onClick={() => void toggleBreakdown()}
-              >
-                {open ? 'Hide merchants' : 'Show merchants'}
-              </button>
-            )}
-          </div>
-        </td>
-        <td
-          className={
-            Number(tx.amount) < 0 ? 'negative' : Number(tx.amount) > 0 ? 'positive' : undefined
-          }
-        >
-          {formatMoney(tx.amount)}
-        </td>
-        <td>
-          <CategoryPicker
-            categories={categories}
-            value={categoryId}
-            disabled={changingCategoryId === tx.id}
-            ariaLabel={`Category for ${tx.description}`}
-            onChange={(nextCategoryId) => onChangeCategory(tx.id, nextCategoryId)}
-          />
-        </td>
-      </tr>
-      {tx.cardBreakdownAvailable && open && (
-        <tr className="spend-card-breakdown-row">
-          <td colSpan={5}>
-            {loading && <p className="muted">Loading merchant breakdown…</p>}
-            {error && <p className="error">{error}</p>}
-            {!loading && !error && breakdown && (
-              <div className="spend-card-breakdown">
-                <p className="muted spend-card-breakdown-meta">
-                  Auto window:{' '}
-                  {breakdown.windowStartExclusive
-                    ? `after ${formatDate(breakdown.windowStartExclusive)} through ${formatDate(breakdown.windowEndInclusive)}`
-                    : `through ${formatDate(breakdown.windowEndInclusive)}`}
-                  {' · '}
-                  merchants net {formatMoney(breakdown.merchantNet)}
-                  {' · '}
-                  payment {formatMoney(breakdown.paymentAmount)}
-                </p>
-                {breakdown.merchants.length === 0 ? (
-                  <p className="muted">No card merchants in this window. Import the card CSV if needed.</p>
-                ) : (
-                  <table className="spend-card-breakdown-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Category</th>
-                        <th>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {breakdown.merchants.map((merchant) => (
-                        <tr key={merchant.id}>
-                          <td>{formatDate(merchant.date)}</td>
-                          <td>{merchant.description}</td>
-                          <td>{merchant.categoryName}</td>
-                          <td
-                            className={
-                              Number(merchant.amount) < 0
-                                ? 'negative'
-                                : Number(merchant.amount) > 0
-                                  ? 'positive'
-                                  : undefined
-                            }
-                          >
-                            {formatMoney(merchant.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-          </td>
-        </tr>
-      )}
-    </>
   )
 }
 
