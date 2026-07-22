@@ -11,12 +11,15 @@ import com.example.cashCombine.ledger.categorisation.CategoryService;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
 import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
+import com.example.cashCombine.ledger.dashboard.CreditCardPaymentBreakdownService;
 import com.example.cashCombine.ledger.dashboard.DashboardService;
 import com.example.cashCombine.ledger.imports.CommBankCsvParser;
 import com.example.cashCombine.ledger.imports.ImportBatchRepository;
 import com.example.cashCombine.ledger.imports.ImportService;
+import com.example.cashCombine.ledger.imports.NabCreditCardCsvParser;
 import com.example.cashCombine.ledger.imports.TransactionCsvParser;
 import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
+import com.example.cashCombine.ledger.transactions.NabCreditCardFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import com.example.cashCombine.ledger.transactions.TransactionService;
@@ -75,6 +78,15 @@ public class LedgerConfig {
 	}
 
 	@Bean
+	CreditCardPaymentBreakdownService creditCardPaymentBreakdownService(
+			TransactionRepository transactionRepository,
+			CategoryRepository categoryRepository,
+			AccountRepository accountRepository) {
+		return new CreditCardPaymentBreakdownService(
+				transactionRepository, categoryRepository, accountRepository);
+	}
+
+	@Bean
 	CategoryId uncategorisedCategoryId(CategoryRepository categoryRepository) {
 		return categoryRepository
 				.findByName(Category.UNCATEGORISED_NAME)
@@ -92,6 +104,7 @@ public class LedgerConfig {
 	Map<AccountType, TransactionCsvParser> transactionCsvParsers() {
 		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
 		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());
+		parsers.put(AccountType.NAB_CREDIT_CARD, new NabCreditCardCsvParser());
 		return parsers;
 	}
 
@@ -99,6 +112,7 @@ public class LedgerConfig {
 	Map<AccountType, TransactionFingerprintStrategy> transactionFingerprintStrategies() {
 		Map<AccountType, TransactionFingerprintStrategy> strategies = new EnumMap<>(AccountType.class);
 		strategies.put(AccountType.COMMBANK, new CommBankFingerprintStrategy());
+		strategies.put(AccountType.NAB_CREDIT_CARD, new NabCreditCardFingerprintStrategy());
 		return strategies;
 	}
 

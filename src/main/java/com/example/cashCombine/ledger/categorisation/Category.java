@@ -10,6 +10,9 @@ public class Category {
 	/** True income (salary, etc.). Other credits offset expenses instead. */
 	public static final String INCOME_NAME = "Income";
 
+	/** Cash-account payments to a credit card (detail comes from the advisory card account). */
+	public static final String CREDIT_CARDS_NAME = "Credit cards";
+
 	private final CategoryId id;
 	private final String name;
 
@@ -59,6 +62,10 @@ public class Category {
 
 	public boolean isExcludedFromExpenses() {
 		return FUNDS_BETWEEN_ACCOUNTS_NAME.equalsIgnoreCase(name);
+	}
+
+	public boolean isCreditCards() {
+		return CREDIT_CARDS_NAME.equalsIgnoreCase(name);
 	}
 
 }

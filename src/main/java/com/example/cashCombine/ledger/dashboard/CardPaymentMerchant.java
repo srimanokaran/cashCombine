@@ -1,16 +1,18 @@
 package com.example.cashCombine.ledger.dashboard;
 
 import com.example.cashCombine.ledger.accounts.AccountId;
+import com.example.cashCombine.ledger.categorisation.CategoryId;
 import com.example.cashCombine.ledger.transactions.TransactionId;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record ExpenseTransaction(
+public record CardPaymentMerchant(
 		TransactionId id,
 		AccountId accountId,
 		String accountName,
 		LocalDate date,
 		BigDecimal amount,
 		String description,
-		boolean cardBreakdownAvailable) {
+		CategoryId categoryId,
+		String categoryName) {
 }

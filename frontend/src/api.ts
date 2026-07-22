@@ -1,6 +1,7 @@
 import type {
   Account,
   AccountType,
+  CardPaymentBreakdown,
   Category,
   CategoryReanalysisResult,
   ExpenseDashboard,
@@ -96,6 +97,8 @@ export const api = {
     request<ExpenseTransaction[]>(`/api/dashboard/expenses/categories/${categoryId}/transactions`),
   listIncomeTransactions: (categoryId: string) =>
     request<ExpenseTransaction[]>(`/api/dashboard/income/categories/${categoryId}/transactions`),
+  getCardPaymentBreakdown: (transactionId: string) =>
+    request<CardPaymentBreakdown>(`/api/dashboard/transactions/${transactionId}/card-breakdown`),
   reanalyseExpenses: () =>
     request<CategoryReanalysisResult>('/api/dashboard/expenses/reanalyse', { method: 'POST' }),
 }

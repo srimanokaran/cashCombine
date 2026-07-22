@@ -142,7 +142,7 @@ public class ImportService {
 		try (var reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
 			String line;
 			while ((line = reader.readLine()) != null) {
-				if (line.isBlank()) {
+				if (line.isBlank() || parser.shouldSkipLine(line)) {
 					continue;
 				}
 

@@ -61,7 +61,10 @@ export function AccountsPage() {
   return (
     <section className="page">
       <h1>Import</h1>
-      <p className="lede">Choose an account, select a CSV, then upload.</p>
+      <p className="lede">
+        Choose an account, select a CSV, then upload. CommBank and Qantas Money (NAB credit card)
+        exports are supported.
+      </p>
 
       {error && <p className="error">{error}</p>}
       {loading ? (
@@ -97,7 +100,15 @@ export function AccountsPage() {
             </div>
             {selected && !importSupported && (
               <p className="muted" style={{ marginTop: '0.85rem', marginBottom: 0 }}>
-                CSV import for {selected.name} is not wired up yet — CommBank works today.
+                CSV import for {selected.name} is not wired up yet — CommBank and NAB credit card
+                work today.
+              </p>
+            )}
+            {selected?.type === 'NAB_CREDIT_CARD' && importSupported && (
+              <p className="muted" style={{ marginTop: '0.85rem', marginBottom: 0 }}>
+                Use Export → CSV from qantasmoney.com (not the PDF statement). Merchants feed the
+                breakdown under each CommBank Credit cards payment on Expenses (auto window since
+                the previous payment).
               </p>
             )}
           </div>

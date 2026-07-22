@@ -18,6 +18,7 @@ import com.example.cashCombine.ledger.categorisation.InMemoryClassificationRuleR
 import com.example.cashCombine.ledger.categorisation.TransactionClassifier;
 import com.example.cashCombine.ledger.transactions.CommBankFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.InMemoryTransactionRepository;
+import com.example.cashCombine.ledger.transactions.NabCreditCardFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionFingerprintStrategy;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
@@ -55,9 +56,11 @@ class ImportServiceTest {
 
 		Map<AccountType, TransactionCsvParser> parsers = new EnumMap<>(AccountType.class);
 		parsers.put(AccountType.COMMBANK, new CommBankCsvParser());
+		parsers.put(AccountType.NAB_CREDIT_CARD, new NabCreditCardCsvParser());
 
 		Map<AccountType, TransactionFingerprintStrategy> fingerprintStrategies = new EnumMap<>(AccountType.class);
 		fingerprintStrategies.put(AccountType.COMMBANK, new CommBankFingerprintStrategy());
+		fingerprintStrategies.put(AccountType.NAB_CREDIT_CARD, new NabCreditCardFingerprintStrategy());
 
 		importService = new ImportService(
 				accountRepository,
@@ -195,8 +198,39 @@ class ImportServiceTest {
 		assertThat(accountService.getAccount(account.id()).hasImports()).isFalse();
 	}
 
+	@Test
+	void importsQantasMoneySampleForNabCreditCard() throws Exception {
+		Account account = accountService.createAccount("NAB credit card", AccountType.NAB_CREDIT_CARD);
+
+		ImportResult result = importService.importCsv(account.id(), qantasMoneySampleStream());
+
+		// 7 rows in fixture; two identical Qantas Airways lines → 6 accepted, 1 duplicate
+		assertThat(result.accepted()).isEqualTo(6);
+		assertThat(result.duplicate()).isEqualTo(1);
+		assertThat(result.rejected()).isZero();
+		assertThat(transactionRepository.findByAccountId(account.id()))
+				.extracting(Transaction::description)
+				.contains("WOOLWORTHS 1234 FAKETOWN", "BPAY PAYMENT - THANK YOU");
+	}
+
+	@Test
+	void reimportingQantasMoneySampleIsIdempotent() throws Exception {
+		Account account = accountService.createAccount("NAB credit card", AccountType.NAB_CREDIT_CARD);
+		importService.importCsv(account.id(), qantasMoneySampleStream());
+
+		ImportResult result = importService.importCsv(account.id(), qantasMoneySampleStream());
+
+		assertThat(result.accepted()).isZero();
+		assertThat(result.duplicate()).isEqualTo(7);
+		assertThat(result.rejected()).isZero();
+	}
+
 	private static InputStream sampleCsvStream() {
 		return ImportServiceTest.class.getResourceAsStream("/csv/commbank-sample.csv");
+	}
+
+	private static InputStream qantasMoneySampleStream() {
+		return ImportServiceTest.class.getResourceAsStream("/csv/qantas-money-sample.csv");
 	}
 
 	private static InputStream stream(String csv) {

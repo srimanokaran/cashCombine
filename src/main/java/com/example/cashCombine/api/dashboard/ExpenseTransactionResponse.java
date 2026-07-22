@@ -11,7 +11,8 @@ public record ExpenseTransactionResponse(
 		String accountName,
 		LocalDate date,
 		BigDecimal amount,
-		String description) {
+		String description,
+		boolean cardBreakdownAvailable) {
 
 	public static ExpenseTransactionResponse from(ExpenseTransaction transaction) {
 		return new ExpenseTransactionResponse(
@@ -20,7 +21,8 @@ public record ExpenseTransactionResponse(
 				transaction.accountName(),
 				transaction.date(),
 				transaction.amount(),
-				transaction.description());
+				transaction.description(),
+				transaction.cardBreakdownAvailable());
 	}
 
 }

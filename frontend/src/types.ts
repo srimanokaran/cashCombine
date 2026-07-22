@@ -63,6 +63,28 @@ export interface ExpenseTransaction {
   date: string
   amount: number
   description: string
+  cardBreakdownAvailable: boolean
+}
+
+export interface CardPaymentMerchant {
+  id: string
+  accountId: string
+  accountName: string
+  date: string
+  amount: number
+  description: string
+  categoryId: string
+  categoryName: string
+}
+
+export interface CardPaymentBreakdown {
+  paymentId: string
+  paymentDate: string
+  paymentAmount: number
+  windowStartExclusive: string | null
+  windowEndInclusive: string
+  merchantNet: number
+  merchants: CardPaymentMerchant[]
 }
 
 export interface ExpenseDashboard {
@@ -85,4 +107,4 @@ export interface ApiError {
 }
 
 /** Account types that currently have a CSV parser wired on the backend. */
-export const IMPORTABLE_ACCOUNT_TYPES: AccountType[] = ['COMMBANK']
+export const IMPORTABLE_ACCOUNT_TYPES: AccountType[] = ['COMMBANK', 'NAB_CREDIT_CARD']

@@ -6,7 +6,7 @@ Built for personal use (and as a backend engineering practice project) — not a
 
 ## What it does today
 
-- **Accounts** — create accounts by type (CommBank CSV import is wired; other types can exist as placeholders)
+- **Accounts** — create accounts by type (CommBank and NAB/Qantas Money credit card CSV import; other types can exist as placeholders)
 - **CSV import** — upload bank exports; rows are accepted, skipped as duplicates, or rejected with a per-import summary
 - **Duplicate detection** — fingerprints use date, amount, description, and balance (amounts normalised to 2 decimal places)
 - **Categories & rules** — contains-match rules on description; longer/more specific patterns win over shorter seed rules
@@ -17,6 +17,7 @@ Built for personal use (and as a backend engineering practice project) — not a
 - **Special categories**
   - **Funds between accounts** — internal transfers (e.g. savings moves, ING→CommBank) excluded from spend/income totals
   - **Income** / **Uncategorised** credits count as income; credits filed under an expense category (e.g. a friend paying you back under Entertainment) net against that category’s spend
+- **Advisory credit cards** — NAB/Qantas Money merchants do not count toward Expenses totals. Expand a CommBank **Credit cards** payment on Expenses to see an auto merchant breakdown (card spend after the previous cash payment through this payment’s date)
 
 ## Stack
 

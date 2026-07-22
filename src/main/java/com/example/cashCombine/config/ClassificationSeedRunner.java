@@ -41,7 +41,7 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 			"Shopping",
 			"Utilities",
 			"Health",
-			"Credit cards",
+			Category.CREDIT_CARDS_NAME,
 			"Rent",
 			Category.FUNDS_BETWEEN_ACCOUNTS_NAME,
 			Category.INCOME_NAME);
@@ -233,11 +233,12 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		rules.put("CHEMIST", "Health");
 		rules.put("PHARMACY", "Health");
 		rules.put("Top Gym", "Health");
-		rules.put("Qantas Credit Cards", "Credit cards");
+		rules.put("Qantas Credit Cards", Category.CREDIT_CARDS_NAME);
 		rules.put("Transfer To Landlord", "Rent");
 		rules.put("CommBank App Savings", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		// Spaces avoid matching substrings like SHOPPING.
 		rules.put(" ING ", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
+		rules.put("BPAY PAYMENT", Category.FUNDS_BETWEEN_ACCOUNTS_NAME);
 		rules.put("PAYROLL", Category.INCOME_NAME);
 		// Preserve LinkedHashMap encounter order (Map.copyOf does not).
 		return Collections.unmodifiableMap(rules);

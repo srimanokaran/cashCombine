@@ -14,4 +14,12 @@ public enum AccountType {
 	public String displayName() {
 		return displayName;
 	}
+
+	/**
+	 * Advisory accounts show individual merchant spend for detail, but their transactions
+	 * are omitted from expense/income totals so cash-account card payments are not double-counted.
+	 */
+	public boolean isAdvisory() {
+		return this == NAB_CREDIT_CARD;
+	}
 }

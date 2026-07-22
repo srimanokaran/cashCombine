@@ -9,4 +9,9 @@ public interface TransactionCsvParser {
 
 	ParsedTransactionRow parseLine(String line);
 
+	/** Header or other non-data lines that should be ignored during import. */
+	default boolean shouldSkipLine(String line) {
+		return false;
+	}
+
 }
