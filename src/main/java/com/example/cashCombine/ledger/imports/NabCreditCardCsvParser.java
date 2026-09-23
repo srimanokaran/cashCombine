@@ -26,8 +26,12 @@ import java.util.Locale;
 public class NabCreditCardCsvParser implements TransactionCsvParser {
 
 	private static final int EXPECTED_COLUMN_COUNT = 9;
-	private static final DateTimeFormatter DATE_FORMAT =
+	/** Full month names as in older sample exports, e.g. {@code 21 July 26}. */
+	private static final DateTimeFormatter FULL_MONTH =
 			DateTimeFormatter.ofPattern("d MMMM yy", Locale.ENGLISH);
+	/** Abbreviated months as in current Qantas Money exports, e.g. {@code 21 Sep 26}. */
+	private static final DateTimeFormatter SHORT_MONTH =
+			DateTimeFormatter.ofPattern("d MMM yy", Locale.ENGLISH);
 
 	@Override
 	public List<ParsedTransactionRow> parse(InputStream input) {
@@ -69,7 +73,7 @@ public class NabCreditCardCsvParser implements TransactionCsvParser {
 		}
 
 		try {
-			LocalDate date = LocalDate.parse(fields[0].trim(), DATE_FORMAT);
+			LocalDate date = parseDate(fields[0]);
 			BigDecimal amount = new BigDecimal(fields[1].trim());
 			String description = fields[5].trim();
 			if (description.isEmpty()) {
@@ -101,7 +105,22 @@ public class NabCreditCardCsvParser implements TransactionCsvParser {
 		if (trimmed.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
-		LocalDate processedOn = LocalDate.parse(trimmed, DATE_FORMAT);
-		return BigDecimal.valueOf(processedOn.toEpochDay());
+		return BigDecimal.valueOf(parseDate(trimmed).toEpochDay());
+	}
+
+	/**
+	 * Accepts full month names ({@code July}) and abbreviations ({@code Sep}).
+	 * Qantas uses {@code Sept} for September, which Java's {@code MMM} does not recognise.
+	 */
+	private static LocalDate parseDate(String raw) {
+		String trimmed = raw.trim();
+		try {
+			return LocalDate.parse(trimmed, FULL_MONTH);
+		}
+		catch (DateTimeParseException ignored) {
+			// try abbreviated form
+		}
+		String normalised = trimmed.replaceAll("(?i)\\bSept\\b", "Sep");
+		return LocalDate.parse(normalised, SHORT_MONTH);
 	}
 }

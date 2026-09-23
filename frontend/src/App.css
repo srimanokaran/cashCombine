@@ -455,6 +455,58 @@ td .meta {
   margin-bottom: 1rem;
 }
 
+.month-filter-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: rgba(122, 115, 255, 0.12);
+  border: 1px solid rgba(122, 115, 255, 0.28);
+}
+
+.month-filter-banner p {
+  margin: 0;
+}
+
+.trends-chart-panel h2 {
+  margin-bottom: 0.75rem;
+}
+
+.trends-chart {
+  width: 100%;
+  min-height: 320px;
+}
+
+.trends-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trends-table th,
+.trends-table td {
+  text-align: left;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.trends-table th {
+  font-size: 0.8rem;
+  color: var(--navy-muted);
+  font-weight: 600;
+}
+
+.trends-row {
+  cursor: pointer;
+}
+
+.trends-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .panel + .panel {
   margin-top: 1rem;
 }

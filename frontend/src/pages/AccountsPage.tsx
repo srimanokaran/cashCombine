@@ -114,6 +114,10 @@ export function AccountsPage() {
 
           <div className="panel">
             <h2>CSV file</h2>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Multi-month or multi-year exports are fine — upload as many days as you like. Re-uploading
+              an overlapping range skips duplicates.
+            </p>
             <label
               className={`file-drop${file ? ' has-file' : ''}${dragging ? ' dragging' : ''}`}
               onDragEnter={(e) => {

@@ -11,11 +11,13 @@ import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional(readOnly = true)
@@ -43,6 +45,10 @@ public class DashboardService {
 	 * count as normal spend.
 	 */
 	public ExpenseDashboard expenseBreakdown() {
+		return expenseBreakdown(DateWindow.ALL);
+	}
+
+	public ExpenseDashboard expenseBreakdown(DateWindow window) {
 		Map<CategoryId, Category> categoriesById = categoriesById();
 		Map<CategoryId, BigDecimal> expenseNets = new HashMap<>();
 		Map<CategoryId, Integer> expenseCounts = new HashMap<>();
@@ -50,25 +56,10 @@ public class DashboardService {
 		Map<CategoryId, Integer> incomeCounts = new HashMap<>();
 
 		for (Transaction transaction : transactionRepository.findAll()) {
-			Category category = categoriesById.get(transaction.categoryId());
-			if (category == null || category.isExcludedFromExpenses()) {
+			if (!window.contains(transaction.date())) {
 				continue;
 			}
-
-			if (category.isIncomeCreditCategory() && transaction.amount().signum() > 0) {
-				incomeTotals.merge(category.id(), transaction.amount(), BigDecimal::add);
-				incomeCounts.merge(category.id(), 1, Integer::sum);
-				continue;
-			}
-
-			if (category.isIncome()) {
-				// Ignore non-credit rows parked on the Income category.
-				continue;
-			}
-
-			// Expense-side: spend increases the net outflow; reimbursements reduce it.
-			expenseNets.merge(category.id(), transaction.amount(), BigDecimal::add);
-			expenseCounts.merge(category.id(), 1, Integer::sum);
+			classify(transaction, categoriesById, expenseNets, expenseCounts, incomeTotals, incomeCounts);
 		}
 
 		Breakdown expenses = toExpenseBreakdown(categoriesById, expenseNets, expenseCounts);
@@ -83,11 +74,64 @@ public class DashboardService {
 	}
 
 	/**
+	 * Month-by-month spend, income, and net (income − spend), oldest month first.
+	 * Contiguous months from earliest to latest transaction are included (empty months as $0).
+	 */
+	public List<MonthlyCashflow> monthlyCashflow() {
+		Map<CategoryId, Category> categoriesById = categoriesById();
+		TreeMap<YearMonth, MonthBucket> buckets = new TreeMap<>();
+
+		for (Transaction transaction : transactionRepository.findAll()) {
+			YearMonth month = YearMonth.from(transaction.date());
+			MonthBucket bucket = buckets.computeIfAbsent(month, ignored -> new MonthBucket());
+			Category category = categoriesById.get(transaction.categoryId());
+			if (category == null || category.isExcludedFromExpenses()) {
+				continue;
+			}
+
+			if (category.isIncomeCreditCategory() && transaction.amount().signum() > 0) {
+				bucket.income = bucket.income.add(transaction.amount());
+				bucket.incomeCount++;
+				continue;
+			}
+
+			if (category.isIncome()) {
+				continue;
+			}
+
+			bucket.expenseNet = bucket.expenseNet.add(transaction.amount());
+			bucket.expenseCount++;
+		}
+
+		if (buckets.isEmpty()) {
+			return List.of();
+		}
+
+		YearMonth cursor = buckets.firstKey();
+		YearMonth last = buckets.lastKey();
+		List<MonthlyCashflow> rows = new ArrayList<>();
+		while (!cursor.isAfter(last)) {
+			MonthBucket bucket = buckets.getOrDefault(cursor, new MonthBucket());
+			BigDecimal expenses = bucket.expenseNet.negate().max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+			BigDecimal income = bucket.income.setScale(2, RoundingMode.HALF_UP);
+			BigDecimal net = income.subtract(expenses).setScale(2, RoundingMode.HALF_UP);
+			rows.add(new MonthlyCashflow(
+					cursor, expenses, income, net, bucket.expenseCount, bucket.incomeCount));
+			cursor = cursor.plusMonths(1);
+		}
+		return List.copyOf(rows);
+	}
+
+	/**
 	 * Transactions in an expense-side category (spends and reimbursements), newest first.
 	 * Amounts keep their sign: negative = spend, positive = credit/reimbursement.
 	 * Uncategorised only lists spends — its credits appear under income.
 	 */
 	public List<ExpenseTransaction> expenseTransactions(CategoryId categoryId) {
+		return expenseTransactions(categoryId, DateWindow.ALL);
+	}
+
+	public List<ExpenseTransaction> expenseTransactions(CategoryId categoryId, DateWindow window) {
 		Category category = categoryRepository
 				.findById(categoryId)
 				.orElseThrow(() -> new CategoryNotFoundException(categoryId));
@@ -95,22 +139,54 @@ public class DashboardService {
 			return List.of();
 		}
 		if (category.isUncategorised()) {
-			return listTransactions(categoryId, ListMode.EXPENSE_ONLY);
+			return listTransactions(categoryId, ListMode.EXPENSE_ONLY, window);
 		}
-		return listTransactions(categoryId, ListMode.ALL);
+		return listTransactions(categoryId, ListMode.ALL, window);
 	}
 
 	/**
 	 * Credits in Income or Uncategorised, newest first.
 	 */
 	public List<ExpenseTransaction> incomeTransactions(CategoryId categoryId) {
+		return incomeTransactions(categoryId, DateWindow.ALL);
+	}
+
+	public List<ExpenseTransaction> incomeTransactions(CategoryId categoryId, DateWindow window) {
 		Category category = categoryRepository
 				.findById(categoryId)
 				.orElseThrow(() -> new CategoryNotFoundException(categoryId));
 		if (!category.isIncomeCreditCategory()) {
 			return List.of();
 		}
-		return listTransactions(categoryId, ListMode.INCOME_ONLY);
+		return listTransactions(categoryId, ListMode.INCOME_ONLY, window);
+	}
+
+	private void classify(
+			Transaction transaction,
+			Map<CategoryId, Category> categoriesById,
+			Map<CategoryId, BigDecimal> expenseNets,
+			Map<CategoryId, Integer> expenseCounts,
+			Map<CategoryId, BigDecimal> incomeTotals,
+			Map<CategoryId, Integer> incomeCounts) {
+		Category category = categoriesById.get(transaction.categoryId());
+		if (category == null || category.isExcludedFromExpenses()) {
+			return;
+		}
+
+		if (category.isIncomeCreditCategory() && transaction.amount().signum() > 0) {
+			incomeTotals.merge(category.id(), transaction.amount(), BigDecimal::add);
+			incomeCounts.merge(category.id(), 1, Integer::sum);
+			return;
+		}
+
+		if (category.isIncome()) {
+			// Ignore non-credit rows parked on the Income category.
+			return;
+		}
+
+		// Expense-side: spend increases the net outflow; reimbursements reduce it.
+		expenseNets.merge(category.id(), transaction.amount(), BigDecimal::add);
+		expenseCounts.merge(category.id(), 1, Integer::sum);
 	}
 
 	private enum ListMode {
@@ -119,7 +195,8 @@ public class DashboardService {
 		EXPENSE_ONLY
 	}
 
-	private List<ExpenseTransaction> listTransactions(CategoryId categoryId, ListMode mode) {
+	private List<ExpenseTransaction> listTransactions(
+			CategoryId categoryId, ListMode mode, DateWindow window) {
 		Map<AccountId, String> accountNames = new HashMap<>();
 		for (Account account : accountRepository.findAll()) {
 			accountNames.put(account.id(), account.name());
@@ -128,6 +205,9 @@ public class DashboardService {
 		List<ExpenseTransaction> rows = new ArrayList<>();
 		for (Transaction transaction : transactionRepository.findAll()) {
 			if (!transaction.categoryId().equals(categoryId)) {
+				continue;
+			}
+			if (!window.contains(transaction.date())) {
 				continue;
 			}
 			int sign = transaction.amount().signum();
@@ -255,6 +335,13 @@ public class DashboardService {
 	}
 
 	private record Breakdown(BigDecimal total, int count, List<CategorySpend> categories) {
+	}
+
+	private static final class MonthBucket {
+		private BigDecimal expenseNet = BigDecimal.ZERO;
+		private BigDecimal income = BigDecimal.ZERO;
+		private int expenseCount;
+		private int incomeCount;
 	}
 
 }

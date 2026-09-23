@@ -6,6 +6,7 @@ import com.example.cashCombine.ledger.categorisation.CategoryNotFoundException;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleService;
+import com.example.cashCombine.ledger.categorisation.RulePattern;
 import java.util.List;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +26,9 @@ public class TransactionService {
 	}
 
 	/**
-	 * Manually categorises a transaction, upserts a contains-match rule from its full description,
-	 * and applies that rule to other non-manual matching transactions.
+	 * Manually categorises a transaction, upserts a contains-match rule from a stabilised
+	 * description pattern (card / value-date noise stripped), and applies that rule to other
+	 * non-manual matching transactions.
 	 */
 	@Transactional
 	public Transaction changeCategory(TransactionId transactionId, CategoryId categoryId) {
@@ -39,8 +41,8 @@ public class TransactionService {
 		transaction.changeCategory(categoryId);
 		Transaction saved = transactionRepository.save(transaction);
 
-		ClassificationRule rule =
-				classificationRuleService.upsertRule(saved.description(), categoryId);
+		ClassificationRule rule = classificationRuleService.upsertRule(
+				RulePattern.fromDescription(saved.description()), categoryId);
 		applyRuleToMatchingTransactions(rule, saved.id());
 
 		return saved;

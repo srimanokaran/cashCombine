@@ -87,6 +87,27 @@ class TransactionServiceTest {
 	}
 
 	@Test
+	void changeCategoryStripsCardAndValueDateNoiseFromRulePattern() {
+		String first =
+				"COMFY.ORG SAN FRANCISCO CA USA Card xx3430 USD 20.00 Value Date: 18/08/2026";
+		String siblingDesc =
+				"COMFY.ORG SAN FRANCISCO CA USA Card xx3430 USD 5.00 Value Date: 11/09/2026";
+		Transaction primary = transactionRepository.save(sampleTransaction(
+				AccountId.generate(), uncategorised.id(), first, LocalDate.of(2026, 8, 18)));
+		Transaction sibling = transactionRepository.save(sampleTransaction(
+				AccountId.generate(), uncategorised.id(), siblingDesc, LocalDate.of(2026, 9, 11)));
+
+		transactionService.changeCategory(primary.id(), dining.id());
+
+		assertThat(ruleRepository.findAll()).singleElement().satisfies(rule -> {
+			assertThat(rule.pattern()).isEqualTo("COMFY.ORG SAN FRANCISCO CA USA");
+			assertThat(rule.categoryId()).isEqualTo(dining.id());
+		});
+		assertThat(transactionRepository.findById(sibling.id()).orElseThrow().categoryId())
+				.isEqualTo(dining.id());
+	}
+
+	@Test
 	void changeCategoryRetargetsExistingSamePatternRule() {
 		ruleRepository.save(ClassificationRule.create(CAFE_DESCRIPTION, groceries.id()));
 		Transaction transaction = transactionRepository.save(sampleTransaction(uncategorised.id()));

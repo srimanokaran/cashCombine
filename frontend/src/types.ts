@@ -74,6 +74,20 @@ export interface ExpenseDashboard {
   incomeCategories: CategorySpend[]
 }
 
+export interface DateRange {
+  from?: string
+  to?: string
+}
+
+export interface MonthlyCashflow {
+  month: string
+  totalExpenses: number
+  totalIncome: number
+  net: number
+  expenseTransactionCount: number
+  incomeTransactionCount: number
+}
+
 export interface CategoryReanalysisResult {
   examined: number
   updated: number

@@ -4,6 +4,7 @@ import { AccountsPage } from './pages/AccountsPage'
 import { CategoriesRulesPage } from './pages/CategoriesRulesPage'
 import { ChartsDashboardPage } from './pages/ChartsDashboardPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { TrendsPage } from './pages/TrendsPage'
 import './App.css'
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
             Import
           </NavLink>
           <NavLink to="/dashboard">Dashboard</NavLink>
+          <NavLink to="/trends">Trends</NavLink>
           <NavLink to="/expenses">Expenses</NavLink>
           <NavLink to="/categories">Categories</NavLink>
         </nav>
@@ -24,6 +26,7 @@ function App() {
         <Routes>
           <Route path="/" element={<AccountsPage />} />
           <Route path="/dashboard" element={<ChartsDashboardPage />} />
+          <Route path="/trends" element={<TrendsPage />} />
           <Route path="/expenses" element={<DashboardPage />} />
           <Route path="/accounts/:id" element={<AccountDetailPage />} />
           <Route path="/categories" element={<CategoriesRulesPage />} />

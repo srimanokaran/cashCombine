@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { AnimatedExpand } from '../components/AnimatedExpand'
 import { CategoryPicker } from '../components/CategoryPicker'
-import { formatDate, formatMoney } from '../format'
-import type { Category, CategorySpend, ExpenseDashboard, ExpenseTransaction } from '../types'
+import { formatDate, formatMoney, formatMonth, monthDateRange } from '../format'
+import type { Category, CategorySpend, DateRange, ExpenseDashboard, ExpenseTransaction } from '../types'
 
 const BAR_COLORS = ['#7a73ff', '#2dd4bf', '#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399']
 const INCOME_BAR_COLORS = ['#34d399', '#2dd4bf', '#a3e635', '#38bdf8', '#fbbf24']
@@ -11,6 +12,16 @@ const INCOME_BAR_COLORS = ['#34d399', '#2dd4bf', '#a3e635', '#38bdf8', '#fbbf24'
 type BreakdownSide = 'expense' | 'income'
 
 export function DashboardPage() {
+  const [searchParams] = useSearchParams()
+  const monthParam = searchParams.get('month')
+  const dateRange = useMemo<DateRange | undefined>(() => {
+    if (!monthParam) {
+      return undefined
+    }
+    return monthDateRange(monthParam) ?? undefined
+  }, [monthParam])
+  const monthLabel = monthParam && dateRange ? formatMonth(monthParam) : null
+
   const [dashboard, setDashboard] = useState<ExpenseDashboard | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -24,31 +35,38 @@ export function DashboardPage() {
   const [reanalyseMessage, setReanalyseMessage] = useState<string | null>(null)
   const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null)
 
-  const loadDashboard = useCallback(async (options?: { quiet?: boolean }) => {
-    const quiet = options?.quiet ?? false
-    if (!quiet) {
-      setLoading(true)
-    }
-    setError(null)
-    try {
-      const [dashboardData, categoryData] = await Promise.all([
-        api.getExpenseDashboard(),
-        api.listCategories(),
-      ])
-      setDashboard(dashboardData)
-      setCategories(categoryData)
-      return dashboardData
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
-      return null
-    } finally {
+  const loadDashboard = useCallback(
+    async (options?: { quiet?: boolean }) => {
+      const quiet = options?.quiet ?? false
       if (!quiet) {
-        setLoading(false)
+        setLoading(true)
       }
-    }
-  }, [])
+      setError(null)
+      try {
+        const [dashboardData, categoryData] = await Promise.all([
+          api.getExpenseDashboard(dateRange),
+          api.listCategories(),
+        ])
+        setDashboard(dashboardData)
+        setCategories(categoryData)
+        return dashboardData
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+        return null
+      } finally {
+        if (!quiet) {
+          setLoading(false)
+        }
+      }
+    },
+    [dateRange],
+  )
 
   useEffect(() => {
+    setExpandedSide(null)
+    setExpandedCategoryId(null)
+    setExpandedTxs(null)
+    setExpandedError(null)
     void loadDashboard()
   }, [loadDashboard])
 
@@ -65,8 +83,8 @@ export function DashboardPage() {
     try {
       const txs =
         side === 'expense'
-          ? await api.listExpenseTransactions(categoryId)
-          : await api.listIncomeTransactions(categoryId)
+          ? await api.listExpenseTransactions(categoryId, dateRange)
+          : await api.listIncomeTransactions(categoryId, dateRange)
       setExpandedTxs(txs)
     } catch (err) {
       setExpandedTxs(null)
@@ -174,6 +192,18 @@ export function DashboardPage() {
           {reanalysing ? 'Re-analysing…' : 'Re-analyse categories'}
         </button>
       </div>
+
+      {monthLabel && (
+        <div className="month-filter-banner">
+          <p>
+            Showing <strong>{monthLabel}</strong> only.
+          </p>
+          <Link to="/expenses">Show all time</Link>
+        </div>
+      )}
+      {monthParam && !dateRange && (
+        <p className="error">Invalid month filter. Use YYYY-MM, or <Link to="/expenses">show all time</Link>.</p>
+      )}
 
       {error && <p className="error">{error}</p>}
       {reanalyseMessage && <p className="success">{reanalyseMessage}</p>}

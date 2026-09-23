@@ -3,13 +3,29 @@ import type {
   AccountType,
   Category,
   CategoryReanalysisResult,
+  DateRange,
   ExpenseDashboard,
   ExpenseTransaction,
   ImportBatch,
   ImportResult,
+  MonthlyCashflow,
   Rule,
   Transaction,
 } from './types'
+
+function withDateRange(path: string, range?: DateRange) {
+  if (!range?.from && !range?.to) {
+    return path
+  }
+  const params = new URLSearchParams()
+  if (range.from) {
+    params.set('from', range.from)
+  }
+  if (range.to) {
+    params.set('to', range.to)
+  }
+  return `${path}?${params.toString()}`
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init)
@@ -91,11 +107,17 @@ export const api = {
     }),
   deleteRule: (id: string) =>
     request<void>(`/api/rules/${id}`, { method: 'DELETE' }),
-  getExpenseDashboard: () => request<ExpenseDashboard>('/api/dashboard/expenses'),
-  listExpenseTransactions: (categoryId: string) =>
-    request<ExpenseTransaction[]>(`/api/dashboard/expenses/categories/${categoryId}/transactions`),
-  listIncomeTransactions: (categoryId: string) =>
-    request<ExpenseTransaction[]>(`/api/dashboard/income/categories/${categoryId}/transactions`),
+  getExpenseDashboard: (range?: DateRange) =>
+    request<ExpenseDashboard>(withDateRange('/api/dashboard/expenses', range)),
+  getMonthlyCashflow: () => request<MonthlyCashflow[]>('/api/dashboard/monthly'),
+  listExpenseTransactions: (categoryId: string, range?: DateRange) =>
+    request<ExpenseTransaction[]>(
+      withDateRange(`/api/dashboard/expenses/categories/${categoryId}/transactions`, range),
+    ),
+  listIncomeTransactions: (categoryId: string, range?: DateRange) =>
+    request<ExpenseTransaction[]>(
+      withDateRange(`/api/dashboard/income/categories/${categoryId}/transactions`, range),
+    ),
   reanalyseExpenses: () =>
     request<CategoryReanalysisResult>('/api/dashboard/expenses/reanalyse', { method: 'POST' }),
 }

@@ -201,6 +201,61 @@ class DashboardServiceTest {
 		assertThat(dashboardService.expenseTransactions(dining.id())).hasSize(1);
 	}
 
+	@Test
+	void monthlyCashflowBucketsByMonthAndFillsGaps() {
+		AccountId accountId = everyday.id();
+		save(accountId, "-40.00", groceries, "WOOLWORTHS MAY", LocalDate.of(2026, 5, 10));
+		save(accountId, "+3200.00", income, "PAYROLL MAY", LocalDate.of(2026, 5, 15));
+		// June intentionally empty
+		save(accountId, "-25.00", dining, "CAFE JUL", LocalDate.of(2026, 7, 8));
+		save(accountId, "+50.00", uncategorised, "CREDIT JUL", LocalDate.of(2026, 7, 9));
+		save(accountId, "-6000.00", fundsBetweenAccounts, "CARD PAYMENT", LocalDate.of(2026, 7, 10));
+
+		List<MonthlyCashflow> months = dashboardService.monthlyCashflow();
+
+		assertThat(months).hasSize(3);
+		assertThat(months.get(0).month()).hasToString("2026-05");
+		assertThat(months.get(0).totalExpenses()).isEqualByComparingTo("40.00");
+		assertThat(months.get(0).totalIncome()).isEqualByComparingTo("3200.00");
+		assertThat(months.get(0).net()).isEqualByComparingTo("3160.00");
+		assertThat(months.get(0).expenseTransactionCount()).isEqualTo(1);
+		assertThat(months.get(0).incomeTransactionCount()).isEqualTo(1);
+
+		assertThat(months.get(1).month()).hasToString("2026-06");
+		assertThat(months.get(1).totalExpenses()).isEqualByComparingTo("0.00");
+		assertThat(months.get(1).totalIncome()).isEqualByComparingTo("0.00");
+		assertThat(months.get(1).net()).isEqualByComparingTo("0.00");
+
+		assertThat(months.get(2).month()).hasToString("2026-07");
+		assertThat(months.get(2).totalExpenses()).isEqualByComparingTo("25.00");
+		assertThat(months.get(2).totalIncome()).isEqualByComparingTo("50.00");
+		assertThat(months.get(2).net()).isEqualByComparingTo("25.00");
+	}
+
+	@Test
+	void expenseBreakdownRespectsDateWindow() {
+		AccountId accountId = everyday.id();
+		save(accountId, "-40.00", groceries, "MAY SPEND", LocalDate.of(2026, 5, 10));
+		save(accountId, "-25.00", dining, "JUL SPEND", LocalDate.of(2026, 7, 8));
+		save(accountId, "+100.00", income, "JUL PAY", LocalDate.of(2026, 7, 9));
+
+		ExpenseDashboard july = dashboardService.expenseBreakdown(
+				new DateWindow(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)));
+
+		assertThat(july.totalExpenses()).isEqualByComparingTo("25.00");
+		assertThat(july.categories()).extracting(CategorySpend::categoryName).containsExactly("Dining");
+		assertThat(july.totalIncome()).isEqualByComparingTo("100.00");
+
+		List<ExpenseTransaction> julyGroceries = dashboardService.expenseTransactions(
+				groceries.id(), new DateWindow(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)));
+		List<ExpenseTransaction> julyDining = dashboardService.expenseTransactions(
+				dining.id(), new DateWindow(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)));
+
+		assertThat(julyGroceries).isEmpty();
+		assertThat(julyDining).hasSize(1);
+		assertThat(julyDining.get(0).description()).isEqualTo("JUL SPEND");
+	}
+
 	private void save(
 			AccountId accountId, String amount, Category category, String description, LocalDate date) {
 		transactionRepository.save(Transaction.create(

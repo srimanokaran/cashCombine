@@ -4,9 +4,11 @@ import com.example.cashCombine.ledger.categorisation.Category;
 import com.example.cashCombine.ledger.categorisation.CategoryRepository;
 import com.example.cashCombine.ledger.categorisation.ClassificationRule;
 import com.example.cashCombine.ledger.categorisation.ClassificationRuleRepository;
+import com.example.cashCombine.ledger.categorisation.RulePattern;
 import com.example.cashCombine.ledger.transactions.Transaction;
 import com.example.cashCombine.ledger.transactions.TransactionRepository;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -76,6 +78,7 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 		renameStreamingToSubscription();
 		mergeHomeIntoUtilities();
 		mergeCreditCardsIntoFundsBetweenAccounts();
+		stabilizeNoisyRulePatterns();
 
 		Map<String, Category> categoriesByName = new LinkedHashMap<>();
 		for (String name : CATEGORIES) {
@@ -125,6 +128,41 @@ public class ClassificationSeedRunner implements ApplicationRunner {
 					updated,
 					removed,
 					CATEGORIES.size());
+		}
+	}
+
+	/**
+	 * Manual overrides used to save the full CommBank description (including Card xx / Value Date).
+	 * Rewrite those to a stable merchant prefix and drop duplicates.
+	 */
+	private void stabilizeNoisyRulePatterns() {
+		Set<String> seenStable = ruleRepository.findAll().stream()
+				.map(rule -> rule.pattern().toLowerCase(Locale.ROOT))
+				.collect(Collectors.toCollection(HashSet::new));
+
+		int shortened = 0;
+		int dropped = 0;
+		for (ClassificationRule rule : List.copyOf(ruleRepository.findAll())) {
+			String stable = RulePattern.fromDescription(rule.pattern());
+			if (stable.equals(rule.pattern())) {
+				continue;
+			}
+			ruleRepository.deleteById(rule.id());
+			String key = stable.toLowerCase(Locale.ROOT);
+			if (seenStable.contains(key)) {
+				dropped++;
+				continue;
+			}
+			ruleRepository.save(ClassificationRule.create(stable, rule.categoryId()));
+			seenStable.add(key);
+			shortened++;
+		}
+
+		if (shortened > 0 || dropped > 0) {
+			log.info(
+					"Stabilised noisy classification rules: shortened {}, dropped {} duplicates",
+					shortened,
+					dropped);
 		}
 	}
 

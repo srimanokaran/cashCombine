@@ -40,6 +40,17 @@ class NabCreditCardCsvParserTest {
 	}
 
 	@Test
+	void parsesAbbreviatedMonthsIncludingSept() {
+		var row = parser.parseLine(
+				"21 Sept 26,-7.99,Card ending 2001,,MISCELLANEOUS DEBIT,DAN MURPHY'S 3778 BRUNSWICK E,Alcohol,Dan Murphy's (Brunswick East),");
+
+		assertThat(row.date()).isEqualTo(LocalDate.of(2026, 9, 21));
+		assertThat(row.amount()).isEqualByComparingTo(new BigDecimal("-7.99"));
+		assertThat(row.description()).isEqualTo("DAN MURPHY'S 3778 BRUNSWICK E");
+		assertThat(row.balance()).isEqualByComparingTo(BigDecimal.ZERO);
+	}
+
+	@Test
 	void keepsPaymentAndRefundSigns() {
 		var payment = parser.parseLine(
 				"04 July 26,702.79,0000000000000000000,,CREDIT CARD PAYMENT,BPAY PAYMENT - THANK YOU,Internal transfers,,06 July 26");
