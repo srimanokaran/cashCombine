@@ -23,14 +23,14 @@ Built for personal use (and as a backend engineering practice project) — not a
 
 | Layer | Tech |
 |---|---|
-| Backend | Java 17, Spring Boot, JPA/Hibernate |
+| Backend | Kotlin 2.1 (JDK 17), Spring Boot, JPA/Hibernate |
 | Database | SQLite (`cashcombine.db` in the project root) |
 | Frontend | React 19, TypeScript, Vite, React Router, Recharts |
 | Tests | JUnit 5, AssertJ; `make testAll` / Gradle |
 
 ## Prerequisites
 
-- Java 17+
+- JDK 17+
 - Node.js 20+ (for the UI)
 - macOS/Linux recommended for the helper scripts
 
@@ -145,7 +145,7 @@ Pushes and pull requests to `main` run [`.github/workflows/ci.yml`](./.github/wo
 ## Project layout
 
 ```text
-src/main/java/.../cashCombine/
+src/main/java/.../cashCombine/    # Kotlin source (path kept as java/)
   api/              # HTTP controllers + response DTOs
   config/           # wiring, seed/migration runner
   infrastructure/   # JPA persistence adapters
@@ -157,6 +157,7 @@ src/main/java/.../cashCombine/
     transactions/
 frontend/           # React SPA
 scripts/            # run-backend, test helpers
+build.gradle.kts    # Kotlin DSL build
 domain-notes.md     # domain decisions
 architectural-decisions/  # ADRs (e.g. credit-card spend model)
 goal.md             # product vision
