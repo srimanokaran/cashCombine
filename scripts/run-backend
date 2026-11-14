@@ -2,9 +2,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# One database per person, shared by every checkout/worktree. Override with CASHCOMBINE_DB
+# (e.g. CASHCOMBINE_DB=./scratch.db for a throwaway run).
+DB_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cashCombine"
+mkdir -p "$DB_DIR"
+export CASHCOMBINE_DB="${CASHCOMBINE_DB:-$DB_DIR/cashcombine.db}"
+
 echo "Starting cashCombine backend (quiet API log)"
 echo "  API:    http://localhost:8080"
-echo "  SQLite: ./cashcombine.db"
+echo "  SQLite: $CASHCOMBINE_DB"
 echo "  Stop with Ctrl+C"
 echo
 

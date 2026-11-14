@@ -42,7 +42,7 @@ src/main/java/.../cashCombine/   # (path unchanged; all .kt files now)
   config/           # Wiring: JPA dialect (SQLite), seed runner, backfill runner, CORS
   infrastructure/   # JPA persistence adapters (repositories)
   ledger/           # Domain + application services per subpackage:
-    accounts/       imports/   transactions/   categorisation/   dashboard/
+    accounts/       imports/   transactions/   categorisation/   dashboard/   search/
 ```
 
 - The app bootstraps with `ClassificationSeedRunner` (ApplicationRunner, Order(1)) — idempotently seeds categories/rules and runs schema migrations (Streaming→Subscription, Home→Utilities, Credit cards→Funds between accounts).
@@ -81,10 +81,13 @@ src/main/java/.../cashCombine/   # (path unchanged; all .kt files now)
 - `POST /api/accounts/ensure-fixed` — idempotently creates default accounts. Frontend calls this on first load.
 - `POST /api/dashboard/expenses/reanalyse` — re-runs classification rules on existing transactions (manual overrides preserved).
 - Changing a transaction's category via `PATCH /transactions/{id}/category` upserts a rule for that description and re-applies to non-manual matches.
+- `GET /api/search/expenses?q=&from=&to=&expand=&limit=` — expense search over description + category name. Totals use the shared `SpendClassifier`; `expand` is a comma-separated list of extra terms (OR) and is validated server-side.
+- `GET /api/search/expenses/expand?q=` — optional local-model query expansion. Returns `available: false` when `search.expander.enabled` is off or the model is unreachable; the search result is unaffected.
+- `search.expander.*` config (`enabled`, `base-url`, `model`, `timeout-ms`) points at any OpenAI-compatible local server (Ollama/LM Studio/llama.cpp). Off by default.
 
 ## SQLite specifics
 
-- Database file: `cashcombine.db` in project root (gitignored, including WAL/SHM).
+- Database file: `$XDG_DATA_HOME/cashCombine/cashcombine.db` (`~/.local/share/cashCombine/cashcombine.db` by default), set by `scripts/run-backend` via `CASHCOMBINE_DB`. One file per person, shared by every checkout/worktree — do not commit it. A bare `./gradlew bootRun` falls back to `./cashcombine.db` (gitignored, including WAL/SHM). Tests use `jdbc:sqlite::memory:` (see `src/test/resources/application.yaml`) and never touch the real file.
 - Hibernate dialect: `SQLiteDialect` from `hibernate-community-dialects` (not a native dialect).
 - The `JpaConfig` bean explicitly sets `hibernate.dialect` to `SQLiteDialect::class.java`.
 

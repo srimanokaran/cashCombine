@@ -56,7 +56,7 @@ open class DashboardService(
 
         for (transaction in transactionRepository.findAll()) {
             val category = categoriesById[transaction.categoryId()] ?: continue
-            when (spendKind(category, transaction.amount())) {
+            when (SpendClassifier.classify(category, transaction.amount())) {
                 SpendKind.EXCLUDED -> continue
                 SpendKind.INCOME -> {
                     val month = YearMonth.from(transaction.date())
@@ -101,7 +101,7 @@ open class DashboardService(
                 continue
             }
             val category = categoriesById[transaction.categoryId()] ?: continue
-            if (spendKind(category, transaction.amount()) != SpendKind.EXPENSE) {
+            if (SpendClassifier.classify(category, transaction.amount()) != SpendKind.EXPENSE) {
                 continue
             }
 
@@ -195,7 +195,7 @@ open class DashboardService(
         incomeCounts: MutableMap<CategoryId, Int>
     ) {
         val category = categoriesById[transaction.categoryId()] ?: return
-        when (spendKind(category, transaction.amount())) {
+        when (SpendClassifier.classify(category, transaction.amount())) {
             SpendKind.EXCLUDED -> return
             SpendKind.INCOME -> {
                 incomeTotals.merge(category.id, transaction.amount()) { a, b -> a.add(b) }
@@ -206,25 +206,6 @@ open class DashboardService(
                 expenseCounts.merge(category.id, 1) { a, b -> a + b }
             }
         }
-    }
-
-    /**
-     * Single definition of how a transaction contributes to spend, shared by every dashboard view:
-     * funds between accounts never count, positive credits in income-like categories are income,
-     * and everything else nets against its category (so refunds reduce spend).
-     */
-    private fun spendKind(category: Category, amount: BigDecimal): SpendKind =
-        when {
-            category.isExcludedFromExpenses -> SpendKind.EXCLUDED
-            category.isIncomeCreditCategory && amount.signum() > 0 -> SpendKind.INCOME
-            category.isIncome -> SpendKind.EXCLUDED
-            else -> SpendKind.EXPENSE
-        }
-
-    private enum class SpendKind {
-        EXCLUDED,
-        INCOME,
-        EXPENSE
     }
 
     private enum class ListMode {

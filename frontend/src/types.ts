@@ -119,6 +119,55 @@ export interface CategoryReanalysisResult {
   skippedManual: number
 }
 
+export type SearchMatch = 'QUERY' | 'EXPANDED'
+
+export interface SearchCategorySplit {
+  categoryId: string
+  categoryName: string
+  amount: number
+  transactionCount: number
+}
+
+export interface SearchSuggestion {
+  label: string
+  matchCount: number
+  total: number
+  categoryName: string
+}
+
+export interface SearchTransaction {
+  id: string
+  accountId: string
+  accountName: string
+  date: string
+  amount: number
+  description: string
+  categoryId: string
+  categoryName: string
+  categoryAssignmentSource: CategoryAssignmentSource
+  matchedBy: SearchMatch
+}
+
+export interface ExpenseSearchResult {
+  query: string
+  totalSpend: number
+  expenseCount: number
+  excludedCount: number
+  expandedTerms: string[]
+  firstDate: string | null
+  lastDate: string | null
+  categories: SearchCategorySplit[]
+  suggestions: SearchSuggestion[]
+  transactions: SearchTransaction[]
+  truncated: boolean
+}
+
+export interface QueryExpansion {
+  available: boolean
+  query: string
+  terms: string[]
+}
+
 export interface ApiError {
   message: string
 }

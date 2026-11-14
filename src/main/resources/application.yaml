@@ -2,8 +2,17 @@ spring:
   application:
     name: cashCombine
   datasource:
-    url: "jdbc:sqlite:cashcombine.db"
+    url: "jdbc:sqlite:${CASHCOMBINE_DB:./cashcombine.db}"
     driver-class-name: org.sqlite.JDBC
   jpa:
     hibernate:
       ddl-auto: update
+
+search:
+  expander:
+    # Optional local-model fallback for searches that find nothing. Off by default so the app
+    # behaves identically with no model running.
+    enabled: false
+    base-url: "http://localhost:11434/v1"
+    model: "llama3.1:8b"
+    timeout-ms: 3000
