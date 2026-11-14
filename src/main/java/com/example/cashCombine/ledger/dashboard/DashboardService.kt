@@ -55,25 +55,22 @@ open class DashboardService(
         val buckets = TreeMap<YearMonth, MonthBucket>()
 
         for (transaction in transactionRepository.findAll()) {
-            val month = YearMonth.from(transaction.date())
-            val bucket = buckets.computeIfAbsent(month) { MonthBucket() }
-            val category = categoriesById[transaction.categoryId()]
-            if (category == null || category.isExcludedFromExpenses) {
-                continue
+            val category = categoriesById[transaction.categoryId()] ?: continue
+            when (spendKind(category, transaction.amount())) {
+                SpendKind.EXCLUDED -> continue
+                SpendKind.INCOME -> {
+                    val month = YearMonth.from(transaction.date())
+                    val bucket = buckets.computeIfAbsent(month) { MonthBucket() }
+                    bucket.income = bucket.income.add(transaction.amount())
+                    bucket.incomeCount++
+                }
+                SpendKind.EXPENSE -> {
+                    val month = YearMonth.from(transaction.date())
+                    val bucket = buckets.computeIfAbsent(month) { MonthBucket() }
+                    bucket.expenseNet = bucket.expenseNet.add(transaction.amount())
+                    bucket.expenseCount++
+                }
             }
-
-            if (category.isIncomeCreditCategory && transaction.amount().signum() > 0) {
-                bucket.income = bucket.income.add(transaction.amount())
-                bucket.incomeCount++
-                continue
-            }
-
-            if (category.isIncome) {
-                continue
-            }
-
-            bucket.expenseNet = bucket.expenseNet.add(transaction.amount())
-            bucket.expenseCount++
         }
 
         if (buckets.isEmpty()) {
@@ -93,6 +90,71 @@ open class DashboardService(
             cursor = cursor.plusMonths(1)
         }
         return rows.toList()
+    }
+
+    fun categoryTrends(window: DateWindow): CategoryTrendReport {
+        val categoriesById = categoriesById()
+        val buckets = TreeMap<YearMonth, MutableMap<CategoryId, CategoryMonthBucket>>()
+
+        for (transaction in transactionRepository.findAll()) {
+            if (!window.contains(transaction.date())) {
+                continue
+            }
+            val category = categoriesById[transaction.categoryId()] ?: continue
+            if (spendKind(category, transaction.amount()) != SpendKind.EXPENSE) {
+                continue
+            }
+
+            val month = YearMonth.from(transaction.date())
+            val bucket = buckets
+                .computeIfAbsent(month) { mutableMapOf() }
+                .computeIfAbsent(category.id) { CategoryMonthBucket() }
+            bucket.net = bucket.net.add(transaction.amount())
+            bucket.count++
+        }
+
+        if (buckets.isEmpty()) {
+            return CategoryTrendReport(null, null, emptyList(), emptyList())
+        }
+
+        val firstDataMonth = buckets.firstKey()
+        val lastDataMonth = buckets.lastKey()
+        val start = window.from?.let { maxOf(YearMonth.from(it), firstDataMonth) } ?: firstDataMonth
+        val end = window.to?.let { minOf(YearMonth.from(it), lastDataMonth) } ?: lastDataMonth
+        if (start.isAfter(end)) {
+            return CategoryTrendReport(null, null, emptyList(), emptyList())
+        }
+
+        val totalsByCategory = mutableMapOf<CategoryId, BigDecimal>()
+        val months = mutableListOf<CategoryTrendMonth>()
+        var cursor = start
+        while (!cursor.isAfter(end)) {
+            val slices = mutableListOf<CategoryTrendSlice>()
+            val bucket = buckets[cursor]
+            if (bucket != null) {
+                for ((categoryId, monthSpend) in bucket) {
+                    val amount = monthSpend.net.negate().setScale(2, RoundingMode.HALF_UP)
+                    totalsByCategory.merge(categoryId, amount) { a, b -> a.add(b) }
+                    slices.add(CategoryTrendSlice(categoryId, amount, monthSpend.count))
+                }
+            }
+            slices.sortWith(compareByDescending<CategoryTrendSlice> { it.amount }
+                .thenBy { categoriesById[it.categoryId]?.name ?: "" })
+            val totalSpend = slices.fold(BigDecimal.ZERO) { acc, slice -> acc.add(slice.amount) }
+                .setScale(2, RoundingMode.HALF_UP)
+            months.add(CategoryTrendMonth(cursor, totalSpend, slices.toList()))
+            cursor = cursor.plusMonths(1)
+        }
+
+        val categories = totalsByCategory.map { (categoryId, total) ->
+            CategoryTrendSummary(
+                categoryId,
+                categoriesById[categoryId]?.name ?: "Unknown",
+                total.setScale(2, RoundingMode.HALF_UP))
+        }.sortedWith(compareByDescending<CategoryTrendSummary> { it.total }
+            .thenBy { it.categoryName })
+
+        return CategoryTrendReport(start, end, categories, months.toList())
     }
 
     fun expenseTransactions(categoryId: CategoryId): List<ExpenseTransaction> {
@@ -132,23 +194,37 @@ open class DashboardService(
         incomeTotals: MutableMap<CategoryId, BigDecimal>,
         incomeCounts: MutableMap<CategoryId, Int>
     ) {
-        val category = categoriesById[transaction.categoryId()]
-        if (category == null || category.isExcludedFromExpenses) {
-            return
+        val category = categoriesById[transaction.categoryId()] ?: return
+        when (spendKind(category, transaction.amount())) {
+            SpendKind.EXCLUDED -> return
+            SpendKind.INCOME -> {
+                incomeTotals.merge(category.id, transaction.amount()) { a, b -> a.add(b) }
+                incomeCounts.merge(category.id, 1) { a, b -> a + b }
+            }
+            SpendKind.EXPENSE -> {
+                expenseNets.merge(category.id, transaction.amount()) { a, b -> a.add(b) }
+                expenseCounts.merge(category.id, 1) { a, b -> a + b }
+            }
+        }
+    }
+
+    /**
+     * Single definition of how a transaction contributes to spend, shared by every dashboard view:
+     * funds between accounts never count, positive credits in income-like categories are income,
+     * and everything else nets against its category (so refunds reduce spend).
+     */
+    private fun spendKind(category: Category, amount: BigDecimal): SpendKind =
+        when {
+            category.isExcludedFromExpenses -> SpendKind.EXCLUDED
+            category.isIncomeCreditCategory && amount.signum() > 0 -> SpendKind.INCOME
+            category.isIncome -> SpendKind.EXCLUDED
+            else -> SpendKind.EXPENSE
         }
 
-        if (category.isIncomeCreditCategory && transaction.amount().signum() > 0) {
-            incomeTotals.merge(category.id, transaction.amount()) { a, b -> a.add(b) }
-            incomeCounts.merge(category.id, 1) { a, b -> a + b }
-            return
-        }
-
-        if (category.isIncome) {
-            return
-        }
-
-        expenseNets.merge(category.id, transaction.amount()) { a, b -> a.add(b) }
-        expenseCounts.merge(category.id, 1) { a, b -> a + b }
+    private enum class SpendKind {
+        EXCLUDED,
+        INCOME,
+        EXPENSE
     }
 
     private enum class ListMode {
@@ -297,5 +373,10 @@ open class DashboardService(
         var income: BigDecimal = BigDecimal.ZERO
         var expenseCount: Int = 0
         var incomeCount: Int = 0
+    }
+
+    private class CategoryMonthBucket {
+        var net: BigDecimal = BigDecimal.ZERO
+        var count: Int = 0
     }
 }

@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom'
 import { AccountDetailPage } from './pages/AccountDetailPage'
 import { AccountsPage } from './pages/AccountsPage'
 import { CategoriesRulesPage } from './pages/CategoriesRulesPage'
+import { CategoryTrendsPage } from './pages/CategoryTrendsPage'
 import { ChartsDashboardPage } from './pages/ChartsDashboardPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { TrendsPage } from './pages/TrendsPage'
@@ -18,6 +19,7 @@ function App() {
           </NavLink>
           <NavLink to="/dashboard">Dashboard</NavLink>
           <NavLink to="/trends">Trends</NavLink>
+          <NavLink to="/category-trends">Category trends</NavLink>
           <NavLink to="/expenses">Expenses</NavLink>
           <NavLink to="/categories">Categories</NavLink>
         </nav>
@@ -27,6 +29,7 @@ function App() {
           <Route path="/" element={<AccountsPage />} />
           <Route path="/dashboard" element={<ChartsDashboardPage />} />
           <Route path="/trends" element={<TrendsPage />} />
+          <Route path="/category-trends" element={<CategoryTrendsPage />} />
           <Route path="/expenses" element={<DashboardPage />} />
           <Route path="/accounts/:id" element={<AccountDetailPage />} />
           <Route path="/categories" element={<CategoriesRulesPage />} />

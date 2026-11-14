@@ -3,6 +3,7 @@ import type {
   AccountType,
   Category,
   CategoryReanalysisResult,
+  CategoryTrendsResponse,
   DateRange,
   ExpenseDashboard,
   ExpenseTransaction,
@@ -110,6 +111,8 @@ export const api = {
   getExpenseDashboard: (range?: DateRange) =>
     request<ExpenseDashboard>(withDateRange('/api/dashboard/expenses', range)),
   getMonthlyCashflow: () => request<MonthlyCashflow[]>('/api/dashboard/monthly'),
+  getCategoryTrends: (range?: DateRange) =>
+    request<CategoryTrendsResponse>(withDateRange('/api/dashboard/category-trends', range)),
   listExpenseTransactions: (categoryId: string, range?: DateRange) =>
     request<ExpenseTransaction[]>(
       withDateRange(`/api/dashboard/expenses/categories/${categoryId}/transactions`, range),

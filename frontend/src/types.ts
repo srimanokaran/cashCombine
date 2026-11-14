@@ -88,6 +88,31 @@ export interface MonthlyCashflow {
   incomeTransactionCount: number
 }
 
+export interface CategoryTrendSummary {
+  categoryId: string
+  categoryName: string
+  total: number
+}
+
+export interface CategoryTrendSlice {
+  categoryId: string
+  amount: number
+  transactionCount: number
+}
+
+export interface CategoryTrendMonth {
+  month: string
+  totalSpend: number
+  slices: CategoryTrendSlice[]
+}
+
+export interface CategoryTrendsResponse {
+  from: string | null
+  to: string | null
+  categories: CategoryTrendSummary[]
+  months: CategoryTrendMonth[]
+}
+
 export interface CategoryReanalysisResult {
   examined: number
   updated: number

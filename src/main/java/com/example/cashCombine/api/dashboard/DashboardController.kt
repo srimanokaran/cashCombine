@@ -32,6 +32,13 @@ class DashboardController(
     fun monthly(): List<MonthlyCashflowResponse> =
         dashboardService.monthlyCashflow().map { MonthlyCashflowResponse.from(it) }
 
+    @GetMapping("/category-trends")
+    fun categoryTrends(
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate?,
+    ): CategoryTrendsResponse =
+        CategoryTrendsResponse.from(dashboardService.categoryTrends(window(from, to)))
+
     @GetMapping("/expenses/categories/{categoryId}/transactions")
     fun expenseTransactions(
         @PathVariable categoryId: UUID,

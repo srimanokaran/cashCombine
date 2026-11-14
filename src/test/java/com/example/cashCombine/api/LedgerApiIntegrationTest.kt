@@ -301,7 +301,63 @@ class LedgerApiIntegrationTest {
             .andExpect(jsonPath("$.length()").value(2))
     }
 
-    private fun categoryIdByName(name: String): String {
+    @Test
+    fun categoryTrendsEndpointReturnsNormalizedMonthlySeries() {
+        val groceriesId = categoryIdByName("Groceries")
+        val diningId = categoryIdByName("Dining")
+
+        val accountResult = mockMvc.perform(
+            post("/api/accounts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Everyday\",\"type\":\"COMMBANK\"}")
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+        val accountId = readJsonField(accountResult, "id")
+
+        val csv = """
+            10/06/2026,"-40.00","WOOLWORTHS 1234 FAKETOWN VIC AUS","+1000.00"
+            11/06/2026,"-10.00","COLES 0001 FAKETOWN VIC","+990.00"
+            08/07/2026,"-25.00","CAFE EXAMPLE BLEND FAKETOWN AUS","+965.00"
+        """.trimIndent().toByteArray(Charsets.UTF_8)
+        mockMvc.perform(
+            multipart("/api/accounts/$accountId/import")
+                .file(MockMultipartFile("file", "trends.csv", "text/csv", csv))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.accepted").value(3))
+
+        mockMvc.perform(get("/api/dashboard/category-trends"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.from").value("2026-06"))
+            .andExpect(jsonPath("$.to").value("2026-07"))
+            .andExpect(jsonPath("$.months.length()").value(2))
+            .andExpect(jsonPath("$.months[0].month").value("2026-06"))
+            .andExpect(jsonPath("$.months[0].totalSpend").value(50.0))
+            .andExpect(jsonPath("$.months[0].slices.length()").value(1))
+            .andExpect(jsonPath("$.months[0].slices[0].categoryId").value(groceriesId))
+            .andExpect(jsonPath("$.months[0].slices[0].amount").value(50.0))
+            .andExpect(jsonPath("$.months[0].slices[0].transactionCount").value(2))
+            .andExpect(jsonPath("$.months[1].month").value("2026-07"))
+            .andExpect(jsonPath("$.months[1].totalSpend").value(25.0))
+            .andExpect(jsonPath("$.months[1].slices[0].categoryId").value(diningId))
+            .andExpect(jsonPath("$.categories.length()").value(2))
+            .andExpect(jsonPath("$.categories[0].categoryName").value("Groceries"))
+            .andExpect(jsonPath("$.categories[0].total").value(50.0))
+            .andExpect(jsonPath("$.categories[1].categoryName").value("Dining"))
+            .andExpect(jsonPath("$.categories[1].total").value(25.0))
+
+        mockMvc.perform(get("/api/dashboard/category-trends?from=2026-07-01&to=2026-07-31"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.from").value("2026-07"))
+            .andExpect(jsonPath("$.to").value("2026-07"))
+            .andExpect(jsonPath("$.months.length()").value(1))
+            .andExpect(jsonPath("$.months[0].totalSpend").value(25.0))
+            .andExpect(jsonPath("$.categories.length()").value(1))
+            .andExpect(jsonPath("$.categories[0].categoryName").value("Dining"))
+    }
+
+private fun categoryIdByName(name: String): String {
         val result = mockMvc.perform(get("/api/categories")).andExpect(status().isOk).andReturn()
         val json = result.response.contentAsString
         val needle = "\"name\":\"$name\""

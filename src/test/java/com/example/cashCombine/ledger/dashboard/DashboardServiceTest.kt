@@ -12,6 +12,7 @@ import com.example.cashCombine.ledger.transactions.Transaction
 import org.assertj.core.api.Assertions.assertThat
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.YearMonth
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -248,6 +249,142 @@ class DashboardServiceTest {
         assertThat(julyGroceries).isEmpty()
         assertThat(julyDining).hasSize(1)
         assertThat(julyDining[0].description).isEqualTo("JUL SPEND")
+    }
+
+    @Test
+    fun `category trends bucket spend by category and month with gap fill`() {
+        val accountId = everyday.id()
+        save(accountId, "-40.00", groceries, "WOOLWORTHS JUNE", LocalDate.of(2026, 6, 10))
+        save(accountId, "-25.00", dining, "CAFE AUGUST", LocalDate.of(2026, 8, 8))
+
+        val report = dashboardService.categoryTrends(DateWindow.ALL)
+
+        assertThat(report.from).isEqualTo(YearMonth.of(2026, 6))
+        assertThat(report.to).isEqualTo(YearMonth.of(2026, 8))
+        assertThat(report.months.map { it.month.toString() })
+            .containsExactly("2026-06", "2026-07", "2026-08")
+
+        val june = report.months[0]
+        assertThat(june.totalSpend).isEqualByComparingTo("40.00")
+        assertThat(june.slices).hasSize(1)
+        assertThat(june.slices[0].categoryId).isEqualTo(groceries.id)
+        assertThat(june.slices[0].amount).isEqualByComparingTo("40.00")
+        assertThat(june.slices[0].transactionCount).isEqualTo(1)
+
+        val july = report.months[1]
+        assertThat(july.totalSpend).isEqualByComparingTo("0.00")
+        assertThat(july.slices).isEmpty()
+
+        val august = report.months[2]
+        assertThat(august.totalSpend).isEqualByComparingTo("25.00")
+        assertThat(august.slices[0].categoryId).isEqualTo(dining.id)
+
+        assertThat(report.categories.map { it.categoryName }).containsExactly("Groceries", "Dining")
+        assertThat(report.categories[0].total).isEqualByComparingTo("40.00")
+        assertThat(report.categories[1].total).isEqualByComparingTo("25.00")
+    }
+
+    @Test
+    fun `category trends exclude funds and income but include uncategorised debits`() {
+        val accountId = everyday.id()
+        save(accountId, "-30.00", groceries, "WOOLWORTHS", LocalDate.of(2026, 7, 5))
+        save(accountId, "-20.00", uncategorised, "UNKNOWN SPEND", LocalDate.of(2026, 7, 6))
+        save(accountId, "+50.00", uncategorised, "FRIEND PAYBACK", LocalDate.of(2026, 7, 7))
+        save(accountId, "+3200.00", income, "PAYROLL", LocalDate.of(2026, 7, 8))
+        save(accountId, "-6000.00", fundsBetweenAccounts, "CARD PAYMENT", LocalDate.of(2026, 7, 9))
+
+        val report = dashboardService.categoryTrends(DateWindow.ALL)
+
+        assertThat(report.months).hasSize(1)
+        assertThat(report.months[0].totalSpend).isEqualByComparingTo("50.00")
+        assertThat(report.months[0].slices.map { it.amount })
+            .containsExactlyInAnyOrder(BigDecimal("30.00"), BigDecimal("20.00"))
+        assertThat(report.categories.map { it.categoryName })
+            .containsExactlyInAnyOrder("Groceries", "Uncategorised")
+    }
+
+    @Test
+    fun `category trends net refunds against their category`() {
+        val accountId = everyday.id()
+        val entertainment = categoryRepository.save(Category.create("Entertainment"))
+        save(accountId, "-15.26", entertainment, "MOVIE", LocalDate.of(2026, 7, 10))
+        save(accountId, "+42.76", entertainment, "FRIEND PAYBACK", LocalDate.of(2026, 7, 11))
+        save(accountId, "-50.00", groceries, "WOOLWORTHS", LocalDate.of(2026, 7, 9))
+
+        val report = dashboardService.categoryTrends(DateWindow.ALL)
+
+        assertThat(report.months[0].totalSpend).isEqualByComparingTo("22.50")
+        assertThat(report.categories.map { it.categoryName }).containsExactly("Groceries", "Entertainment")
+        assertThat(report.categories[1].total).isEqualByComparingTo("-27.50")
+
+        val entertainmentSlice = report.months[0].slices.single { it.categoryId == entertainment.id }
+        assertThat(entertainmentSlice.amount).isEqualByComparingTo("-27.50")
+        assertThat(entertainmentSlice.transactionCount).isEqualTo(2)
+    }
+
+    @Test
+    fun `category trends respect the date window and clamp to available data`() {
+        val accountId = everyday.id()
+        save(accountId, "-40.00", groceries, "MAY SPEND", LocalDate.of(2026, 5, 10))
+        save(accountId, "-25.00", dining, "JULY SPEND", LocalDate.of(2026, 7, 8))
+
+        val julyOnly = dashboardService.categoryTrends(
+            DateWindow(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)))
+
+        assertThat(julyOnly.from).isEqualTo(YearMonth.of(2026, 7))
+        assertThat(julyOnly.to).isEqualTo(YearMonth.of(2026, 7))
+        assertThat(julyOnly.months).hasSize(1)
+        assertThat(julyOnly.months[0].totalSpend).isEqualByComparingTo("25.00")
+        assertThat(julyOnly.categories.map { it.categoryName }).containsExactly("Dining")
+
+        val outsideData = dashboardService.categoryTrends(
+            DateWindow(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 28)))
+
+        assertThat(outsideData.months).isEmpty()
+        assertThat(outsideData.categories).isEmpty()
+        assertThat(outsideData.from).isNull()
+    }
+
+    @Test
+    fun `category trends are empty for an empty ledger`() {
+        val report = dashboardService.categoryTrends(DateWindow.ALL)
+
+        assertThat(report.months).isEmpty()
+        assertThat(report.categories).isEmpty()
+        assertThat(report.from).isNull()
+        assertThat(report.to).isNull()
+    }
+
+    @Test
+    fun `category trends keep slices and totals consistent`() {
+        val accountId = everyday.id()
+        save(accountId, "-40.00", groceries, "WOOLWORTHS JUNE", LocalDate.of(2026, 6, 10))
+        save(accountId, "-15.00", dining, "CAFE JUNE", LocalDate.of(2026, 6, 11))
+        save(accountId, "-25.00", dining, "CAFE AUGUST", LocalDate.of(2026, 8, 8))
+        save(accountId, "+10.00", groceries, "REFUND AUGUST", LocalDate.of(2026, 8, 9))
+
+        val report = dashboardService.categoryTrends(DateWindow.ALL)
+        val categoryIds = report.categories.map { it.categoryId }
+
+        for (month in report.months) {
+            assertThat(month.totalSpend)
+                .isEqualByComparingTo(month.slices.fold(BigDecimal.ZERO) { acc, slice -> acc.add(slice.amount) })
+            for (slice in month.slices) {
+                assertThat(categoryIds).contains(slice.categoryId)
+            }
+        }
+
+        for (category in report.categories) {
+            val summed = report.months
+                .flatMap { it.slices }
+                .filter { it.categoryId == category.categoryId }
+                .fold(BigDecimal.ZERO) { acc, slice -> acc.add(slice.amount) }
+            assertThat(category.total).isEqualByComparingTo(summed)
+        }
+
+        assertThat(report.months.map { it.month.toString() })
+            .containsExactly("2026-06", "2026-07", "2026-08")
+        assertThat(report.categories.map { it.categoryName }).containsExactly("Dining", "Groceries")
     }
 
     private fun save(

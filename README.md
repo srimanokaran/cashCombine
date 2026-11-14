@@ -90,6 +90,8 @@ Four columns per row: date, amount, description, balance (quoted fields supporte
 |---|---|
 | `/` | Accounts + CSV import |
 | `/accounts/:id` | Account transactions, imports, delete an import batch |
+| `/trends` | Month-by-month spend, income, and net |
+| `/category-trends` | Spend by category over time (stacked bars or lines) |
 | `/expenses` | Spending & income by category (expand + reassign) |
 | `/dashboard` | Pie charts for spend and income |
 | `/categories` | Manage categories; classification rules are behind **Show classification rules** |
@@ -113,7 +115,7 @@ Base path: `/api`
 | Transactions | `PATCH /transactions/{id}/category` |
 | Categories | `GET/POST /categories`, `DELETE /categories/{id}` |
 | Rules | `GET/POST /rules`, `DELETE /rules/{id}` |
-| Dashboard | `GET /dashboard/expenses`, category transaction lists, `POST /dashboard/expenses/reanalyse` |
+| Dashboard | `GET /dashboard/expenses`, `GET /dashboard/monthly`, `GET /dashboard/category-trends`, category transaction lists, `POST /dashboard/expenses/reanalyse` |
 
 There is **no authentication**. Treat this as a local-only app; do not expose the port on a shared network without adding auth and binding to localhost.
 
