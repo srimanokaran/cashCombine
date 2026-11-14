@@ -6,10 +6,12 @@ import type {
   CategoryTrendsResponse,
   DateRange,
   ExpenseDashboard,
+  ExpenseSearchResult,
   ExpenseTransaction,
   ImportBatch,
   ImportResult,
   MonthlyCashflow,
+  QueryExpansion,
   Rule,
   Transaction,
 } from './types'
@@ -123,4 +125,19 @@ export const api = {
     ),
   reanalyseExpenses: () =>
     request<CategoryReanalysisResult>('/api/dashboard/expenses/reanalyse', { method: 'POST' }),
+  searchExpenses: (params: { q: string; expand?: string[]; from?: string; to?: string }) => {
+    const query = new URLSearchParams({ q: params.q })
+    if (params.expand && params.expand.length > 0) {
+      query.set('expand', params.expand.join(','))
+    }
+    if (params.from) {
+      query.set('from', params.from)
+    }
+    if (params.to) {
+      query.set('to', params.to)
+    }
+    return request<ExpenseSearchResult>(`/api/search/expenses?${query.toString()}`)
+  },
+  expandSearch: (q: string) =>
+    request<QueryExpansion>(`/api/search/expenses/expand?${new URLSearchParams({ q }).toString()}`),
 }

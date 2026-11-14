@@ -24,7 +24,7 @@ Built for personal use (and as a backend engineering practice project) — not a
 | Layer | Tech |
 |---|---|
 | Backend | Kotlin 2.1 (JDK 17), Spring Boot, JPA/Hibernate |
-| Database | SQLite (`cashcombine.db` in the project root) |
+| Database | SQLite — one file per person under `$XDG_DATA_HOME/cashCombine/`, shared across worktrees |
 | Frontend | React 19, TypeScript, Vite, React Router, Recharts |
 | Tests | JUnit 5, AssertJ; `make testAll` / Gradle |
 
@@ -59,7 +59,7 @@ Full Spring logging:
 ```
 
 - API: [http://localhost:8080](http://localhost:8080)
-- SQLite file: `cashcombine.db` (gitignored, including WAL/SHM)
+- SQLite file: `$XDG_DATA_HOME/cashCombine/cashcombine.db` (defaults to `~/.local/share/cashCombine/cashcombine.db`), shared by every checkout/worktree of this repo. Set `CASHCOMBINE_DB` to use a different file (e.g. `CASHCOMBINE_DB=./scratch.db ./scripts/run-backend`); running `./gradlew bootRun` directly falls back to `./cashcombine.db`. Tests use in-memory SQLite and never touch it.
 
 ### Frontend
 
@@ -93,6 +93,7 @@ Four columns per row: date, amount, description, balance (quoted fields supporte
 | `/trends` | Month-by-month spend, income, and net |
 | `/category-trends` | Spend by category over time (stacked bars or lines) |
 | `/expenses` | Spending & income by category (expand + reassign) |
+| `/search` | Search expenses by description or category name (total + merchants) |
 | `/dashboard` | Pie charts for spend and income |
 | `/categories` | Manage categories; classification rules are behind **Show classification rules** |
 
@@ -116,6 +117,7 @@ Base path: `/api`
 | Categories | `GET/POST /categories`, `DELETE /categories/{id}` |
 | Rules | `GET/POST /rules`, `DELETE /rules/{id}` |
 | Dashboard | `GET /dashboard/expenses`, `GET /dashboard/monthly`, `GET /dashboard/category-trends`, category transaction lists, `POST /dashboard/expenses/reanalyse` |
+| Search | `GET /search/expenses?q=…&expand=…`, `GET /search/expenses/expand?q=…` |
 
 There is **no authentication**. Treat this as a local-only app; do not expose the port on a shared network without adding auth and binding to localhost.
 
@@ -156,6 +158,7 @@ src/main/java/.../cashCombine/    # Kotlin source (path kept as java/)
     categorisation/
     dashboard/
     imports/
+    search/
     transactions/
 frontend/           # React SPA
 scripts/            # run-backend, test helpers

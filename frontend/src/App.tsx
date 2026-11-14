@@ -5,6 +5,7 @@ import { CategoriesRulesPage } from './pages/CategoriesRulesPage'
 import { CategoryTrendsPage } from './pages/CategoryTrendsPage'
 import { ChartsDashboardPage } from './pages/ChartsDashboardPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { SearchPage } from './pages/SearchPage'
 import { TrendsPage } from './pages/TrendsPage'
 import './App.css'
 
@@ -21,6 +22,7 @@ function App() {
           <NavLink to="/trends">Trends</NavLink>
           <NavLink to="/category-trends">Category trends</NavLink>
           <NavLink to="/expenses">Expenses</NavLink>
+          <NavLink to="/search">Search</NavLink>
           <NavLink to="/categories">Categories</NavLink>
         </nav>
       </header>
@@ -31,6 +33,7 @@ function App() {
           <Route path="/trends" element={<TrendsPage />} />
           <Route path="/category-trends" element={<CategoryTrendsPage />} />
           <Route path="/expenses" element={<DashboardPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/accounts/:id" element={<AccountDetailPage />} />
           <Route path="/categories" element={<CategoriesRulesPage />} />
         </Routes>
