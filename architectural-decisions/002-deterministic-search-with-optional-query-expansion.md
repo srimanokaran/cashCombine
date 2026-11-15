@@ -1,6 +1,7 @@
 # 002 — Deterministic search, optional local model for query expansion
 
-**Status:** Accepted  
+**Status:** Amended by [003](./003-local-ai-expense-search.md) for the opt-in AI search mode
+
 **Date:** 2026-11-14
 
 ## Context

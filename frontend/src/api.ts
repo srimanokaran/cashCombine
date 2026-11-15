@@ -125,7 +125,7 @@ export const api = {
     ),
   reanalyseExpenses: () =>
     request<CategoryReanalysisResult>('/api/dashboard/expenses/reanalyse', { method: 'POST' }),
-  searchExpenses: (params: { q: string; expand?: string[]; from?: string; to?: string }) => {
+  searchExpenses: (params: { q: string; expand?: string[]; from?: string; to?: string }, signal?: AbortSignal) => {
     const query = new URLSearchParams({ q: params.q })
     if (params.expand && params.expand.length > 0) {
       query.set('expand', params.expand.join(','))
@@ -136,8 +136,17 @@ export const api = {
     if (params.to) {
       query.set('to', params.to)
     }
-    return request<ExpenseSearchResult>(`/api/search/expenses?${query.toString()}`)
+    return request<ExpenseSearchResult>(`/api/search/expenses?${query.toString()}`, { signal })
   },
+  startAiSearch: (signal?: AbortSignal) =>
+    request<{ available: boolean }>('/api/search/ai/start', { method: 'POST', signal }),
+  searchExpensesAi: (query: string, signal?: AbortSignal) =>
+    request<ExpenseSearchResult>('/api/search/expenses/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal,
+    }),
   expandSearch: (q: string) =>
     request<QueryExpansion>(`/api/search/expenses/expand?${new URLSearchParams({ q }).toString()}`),
 }

@@ -60,6 +60,19 @@ account.id(),
     }
 
     @Test
+    fun `bounded read returns only the requested number of transactions`() {
+        val category = categoryRepository.findByName(Category.UNCATEGORISED_NAME)!!
+        val account = accountRepository.save(Account.create("Bounded", AccountType.COMMBANK))
+        repeat(3) { index ->
+            transactionRepository.save(Transaction.create(account.id(), ParsedTransactionRow(
+                LocalDate.of(2026, 7, 10), BigDecimal("-1.00"), "SHOP $index", BigDecimal("100.00")
+            ), category.id))
+        }
+        assertThat(transactionRepository.findUpTo(2)).hasSize(2)
+        assertThat(transactionRepository.findUpTo(4)).hasSize(3)
+    }
+
+    @Test
     fun `seeds uncategorised category`() {
         assertThat(categoryRepository.findByName(Category.UNCATEGORISED_NAME)).isNotNull
     }

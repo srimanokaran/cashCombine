@@ -1137,6 +1137,33 @@ td .meta {
   max-width: 10.5rem;
 }
 
+.search-mode {
+  margin: 1rem 0;
+}
+
+.search-ai-info {
+  margin-bottom: 1rem;
+  color: var(--navy-muted);
+  font-size: 0.9rem;
+}
+
+.search-ai-info p {
+  margin: 0.35rem 0;
+}
+
+.search-ai-result {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(122, 115, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(122, 115, 255, 0.12);
+  font-size: 0.9rem;
+}
+
+.search-ai-result p {
+  margin: 0.3rem 0 0;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
@@ -1146,7 +1173,18 @@ td .meta {
 
 .search-bar input[type='search'] {
   flex: 1;
+  min-width: 0;
   margin: 0;
+}
+
+@media (max-width: 500px) {
+  .search-bar {
+    flex-wrap: wrap;
+  }
+
+  .search-bar input[type='search'] {
+    flex-basis: 100%;
+  }
 }
 
 .search-pending {

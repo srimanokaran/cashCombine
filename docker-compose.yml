@@ -1,0 +1,78 @@
+# Starts the app and the UI. Ollama runs natively on your machine (faster: it can use
+# the GPU), so it is not part of the default stack.
+#
+#   docker compose up          # app + web, talking to Ollama on the host
+#   docker compose down        # stop everything
+#
+# The commented services below run Ollama inside Docker instead. That is self-contained
+# but heavy, and on macOS it runs on CPU only, so AI search is much slower.
+
+services:
+  # --- Ollama in Docker (optional) -----------------------------------------
+  # Uncomment this service, the ollama-pull service and the app's depends_on block,
+  # then set SEARCH_AI_BASE_URL to http://ollama:11434. Remove host.docker.internal.
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   volumes:
+  #     - ollama-models:/root/.ollama
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 5s
+  #     timeout: 10s
+  #     retries: 60
+  #   # Linux with an NVIDIA GPU only.
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: all
+  #   #           capabilities: [gpu]
+  #
+  # # Downloads the model once into the ollama-models volume.
+  # ollama-pull:
+  #   image: ollama/ollama:latest
+  #   depends_on:
+  #     ollama:
+  #       condition: service_healthy
+  #   environment:
+  #     OLLAMA_HOST: http://ollama:11434
+  #   entrypoint: ["/bin/ollama", "pull", "llama3"]
+  #   restart: "no"
+
+  app:
+    build:
+      context: .
+      target: app
+    environment:
+      CASHCOMBINE_DB: /data/cashcombine.db
+      # Ollama runs outside this stack, so the app only connects; it never launches one.
+      SEARCH_AI_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      SEARCH_AI_START_OLLAMA: "false"
+      SPRING_PROFILES_ACTIVE: quiet
+    volumes:
+      - cashcombine-data:/data
+    extra_hosts:
+      # Makes host.docker.internal resolve on Linux as well as Docker Desktop.
+      - "host.docker.internal:host-gateway"
+    # Uncomment together with the ollama services above.
+    # depends_on:
+    #   ollama:
+    #     condition: service_healthy
+    #   ollama-pull:
+    #     condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "${CASHCOMBINE_PORT:-8080}:80"
+    depends_on:
+      - app
+
+volumes:
+  cashcombine-data:
+  # Uncomment with the ollama service above.
+  # ollama-models:

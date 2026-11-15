@@ -33,6 +33,8 @@ class InMemoryTransactionRepository : TransactionRepository {
 
     override fun findAll(): List<Transaction> = transactions.values.toList()
 
+    override fun findUpTo(limit: Int): List<Transaction> = transactions.values.asSequence().take(limit).toList()
+
     override fun existsByAccountAndFingerprint(accountId: AccountId, fingerprint: TransactionFingerprint): Boolean =
         fingerprints.contains(AccountFingerprintKey(accountId, fingerprint))
 

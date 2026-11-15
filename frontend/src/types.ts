@@ -119,7 +119,7 @@ export interface CategoryReanalysisResult {
   skippedManual: number
 }
 
-export type SearchMatch = 'QUERY' | 'EXPANDED'
+export type SearchMatch = 'QUERY' | 'EXPANDED' | 'AI'
 
 export interface SearchCategorySplit {
   categoryId: string

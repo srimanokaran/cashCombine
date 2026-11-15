@@ -12,7 +12,10 @@ enum class SearchMatch {
     QUERY,
 
     /** Matched only a related term suggested by the query interpreter. */
-    EXPANDED
+    EXPANDED,
+
+    /** Selected by the local model rather than by keyword matching. */
+    AI
 }
 
 data class SearchTransaction(

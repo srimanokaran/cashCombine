@@ -1,0 +1,12 @@
+.git
+.gradle
+.kotlin
+build
+frontend/node_modules
+frontend/dist
+research
+*.db
+*.db-wal
+*.db-shm
+*.csv
+!src/test/resources/**/*.csv

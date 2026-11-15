@@ -10,6 +10,7 @@ import com.example.cashCombine.ledger.dashboard.DateWindow
 import com.example.cashCombine.ledger.dashboard.SpendClassifier
 import com.example.cashCombine.ledger.dashboard.SpendKind
 import com.example.cashCombine.ledger.transactions.Transaction
+import com.example.cashCombine.ledger.transactions.TransactionId
 import com.example.cashCombine.ledger.transactions.TransactionRepository
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -43,10 +44,44 @@ open class ExpenseSearchService(
             return emptyResult(trimmedQuery, extraTerms)
         }
 
-        val categoriesById = categoriesById()
-        val accountNames = accountNames()
-        val cap = limit.coerceIn(1, MAX_LIMIT)
+        return aggregate(
+            trimmedQuery, extraTerms, transactionRepository.findAll(), categoriesById(),
+            limit.coerceIn(1, MAX_LIMIT),
+        ) { transaction, category ->
+            if (!window.contains(transaction.date())) return@aggregate null
+            val haystack = haystack(transaction, category)
+            when {
+                queryTerms.all { haystack.contains(it) } -> SearchMatch.QUERY
+                extraTerms.any { haystack.contains(it) } -> SearchMatch.EXPANDED
+                else -> null
+            }
+        }
+    }
 
+    /** Aggregate exactly the snapshot selected by the model, using the same spend rules as search. */
+    fun searchSelected(
+        query: String,
+        transactions: List<Transaction>,
+        categories: Map<CategoryId, Category>,
+        selectedIds: Set<TransactionId>,
+    ): ExpenseSearchResult {
+        if (selectedIds.size > MAX_LIMIT) {
+            throw AiSearchException.tooLarge("AI search matched too many transactions. Please narrow your query.")
+        }
+        return aggregate(query, emptyList(), transactions, categories, MAX_LIMIT) { transaction, _ ->
+            if (transaction.id() in selectedIds) SearchMatch.AI else null
+        }
+    }
+
+    private fun aggregate(
+        query: String,
+        extraTerms: List<String>,
+        transactions: List<Transaction>,
+        categoriesById: Map<CategoryId, Category>,
+        cap: Int,
+        match: (Transaction, Category) -> SearchMatch?,
+    ): ExpenseSearchResult {
+        val accountNames = accountNames()
         val rows = mutableListOf<SearchTransaction>()
         val categoryBuckets = mutableMapOf<CategoryId, CategoryBucket>()
         val suggestionBuckets = mutableMapOf<String, SuggestionBucket>()
@@ -55,24 +90,14 @@ open class ExpenseSearchService(
         var firstDate: LocalDate? = null
         var lastDate: LocalDate? = null
 
-        for (transaction in transactionRepository.findAll()) {
-            if (!window.contains(transaction.date())) {
-                continue
-            }
+        for (transaction in transactions) {
             val category = categoriesById[transaction.categoryId()] ?: continue
-            val haystack = haystack(transaction, category)
-            val matchedByQuery = queryTerms.all { haystack.contains(it) }
-            val matchedByExpanded = !matchedByQuery && extraTerms.any { haystack.contains(it) }
-            if (!matchedByQuery && !matchedByExpanded) {
-                continue
-            }
-
+            val matchedBy = match(transaction, category) ?: continue
             if (SpendClassifier.classify(category, transaction.amount()) != SpendKind.EXPENSE) {
                 excludedCount++
                 continue
             }
 
-            val matchedBy = if (matchedByQuery) SearchMatch.QUERY else SearchMatch.EXPANDED
             rows.add(SearchTransaction(
                 transaction.id(),
                 transaction.accountId(),
@@ -116,7 +141,7 @@ open class ExpenseSearchService(
             .thenBy { it.description })
 
         return ExpenseSearchResult(
-            trimmedQuery,
+            query,
             netSpend(signedTotal),
             rows.size,
             excludedCount,
