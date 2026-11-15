@@ -7,6 +7,7 @@ import com.example.cashCombine.ledger.transactions.Transaction
 import com.example.cashCombine.ledger.transactions.TransactionFingerprint
 import com.example.cashCombine.ledger.transactions.TransactionId
 import com.example.cashCombine.ledger.transactions.TransactionRepository
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
@@ -48,6 +49,10 @@ class JpaTransactionRepository(private val jpaRepository: TransactionJpaReposito
     override fun findAll(): List<Transaction> {
         return jpaRepository.findAll().map { toDomain(it) }
     }
+
+    @Transactional(readOnly = true)
+    override fun findUpTo(limit: Int): List<Transaction> =
+        jpaRepository.findAll(PageRequest.of(0, limit)).content.map { toDomain(it) }
 
     @Transactional(readOnly = true)
     override fun existsByAccountAndFingerprint(accountId: AccountId, fingerprint: TransactionFingerprint): Boolean {

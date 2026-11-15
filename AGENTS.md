@@ -82,8 +82,11 @@ src/main/java/.../cashCombine/   # (path unchanged; all .kt files now)
 - `POST /api/dashboard/expenses/reanalyse` — re-runs classification rules on existing transactions (manual overrides preserved).
 - Changing a transaction's category via `PATCH /transactions/{id}/category` upserts a rule for that description and re-applies to non-manual matches.
 - `GET /api/search/expenses?q=&from=&to=&expand=&limit=` — expense search over description + category name. Totals use the shared `SpendClassifier`; `expand` is a comma-separated list of extra terms (OR) and is validated server-side.
-- `GET /api/search/expenses/expand?q=` — optional local-model query expansion. Returns `available: false` when `search.expander.enabled` is off or the model is unreachable; the search result is unaffected.
-- `search.expander.*` config (`enabled`, `base-url`, `model`, `timeout-ms`) points at any OpenAI-compatible local server (Ollama/LM Studio/llama.cpp). Off by default.
+- `GET /api/search/expenses/expand?q=` — separate optional query expansion API. Returns `available: false` when `search.expander.enabled` is off or the model is unreachable.
+- `search.expander.*` config (`enabled`, `base-url`, `model`, `timeout-ms`) controls that older OpenAI-compatible keyword-expansion API; it is not the AI search toggle.
+- `POST /api/search/ai/start` starts or connects to local Ollama; `POST /api/search/expenses/ai` uses it to select transactions for an explicit natural-language search. The model sees transaction data but not balances or account names; the backend validates its selections and computes totals with `SpendClassifier`. AI matching is approximate; regular search remains the default.
+- `search.ai.*` config (`base-url`, `model`, `start-ollama`). Defaults to loopback with `start-ollama: true`, which lets the app launch `ollama serve` itself. Docker Compose sets `SEARCH_AI_BASE_URL=http://ollama:11434` and `SEARCH_AI_START_OLLAMA=false` because Ollama runs as its own service there.
+- Docker: `docker compose up` runs `app` and `web` (nginx serving the built UI and proxying `/api`) and connects to Ollama on the host via `host.docker.internal`. The `ollama` and `ollama-pull` services are present but commented out in `docker-compose.yml`; Ollama in Docker is memory-hungry and CPU-only on macOS. `Dockerfile` has `app` and `web` targets.
 
 ## SQLite specifics
 

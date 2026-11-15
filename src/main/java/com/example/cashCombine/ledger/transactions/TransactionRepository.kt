@@ -16,6 +16,9 @@ interface TransactionRepository {
 
     fun findAll(): List<Transaction>
 
+    /** Read at most [limit] rows, for callers that must reject oversized ledgers. */
+    fun findUpTo(limit: Int): List<Transaction>
+
     fun existsByAccountAndFingerprint(accountId: AccountId, fingerprint: TransactionFingerprint): Boolean
 
     fun existsByAccountId(accountId: AccountId): Boolean

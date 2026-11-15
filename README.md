@@ -36,7 +36,47 @@ Built for personal use (and as a backend engineering practice project) — not a
 
 ## Run locally
 
-### Backend
+### Everything with Docker
+
+Start Ollama natively first — it uses the GPU, which Docker Desktop on macOS cannot:
+
+```bash
+ollama serve            # or open the Ollama app
+docker compose up       # app + web
+```
+
+Open <http://localhost:8080>. Compose starts two containers and nothing else:
+
+| Service | Role |
+|---|---|
+| `app` | Spring Boot API, ledger in the `cashcombine-data` volume |
+| `web` | nginx serving the built UI and proxying `/api` |
+
+Ollama stays outside the stack on purpose: it is memory-hungry, and in a container it would
+run on CPU only. The app reaches it at `host.docker.internal:11434`.
+
+Stop everything with `docker compose down`. Your ledger stays in the volume; add `-v` only if
+you want to delete it. Different port: `CASHCOMBINE_PORT=9090 docker compose up`.
+
+If Ollama listens somewhere else, set `OLLAMA_BASE_URL`:
+
+```bash
+OLLAMA_BASE_URL=http://host.docker.internal:11500 docker compose up
+```
+
+To run Ollama in Docker instead (self-contained, slower on macOS), uncomment the `ollama`
+and `ollama-pull` services and the app's `depends_on` block in `docker-compose.yml`, then set
+`SEARCH_AI_BASE_URL=http://ollama:11434` and remove the `extra_hosts` entry.
+
+To keep your existing ledger in the container, copy it into the volume:
+
+```bash
+docker compose run --rm --entrypoint sh \
+  -v "$HOME/.local/share/cashCombine:/src:ro" app \
+  -c 'mkdir -p /data && cp /src/cashcombine.db /data/'
+```
+
+### Backend only
 
 Quiet API log (recommended while using the UI):
 
@@ -80,6 +120,25 @@ npm run dev
 4. Expand a category, reassign transactions as needed — each change saves a rule for that description.
 5. Optionally open **Categories** (and **Show classification rules** if you need manual patterns), or use **Re-analyse categories** after changing rules so existing imports catch up.
 
+### Search with local AI
+
+Regular search is the default and matches the words you type against bank descriptions and category
+names. To try a natural-language query, select **AI search** on the Search page and submit your
+question. AI search requires [Ollama](https://ollama.com/) and the locally installed `llama3` model:
+
+To install the model once, start `ollama serve` in a terminal if Ollama is not already running,
+then run `ollama pull llama3` in another terminal. This downloads the model; the app never downloads
+it automatically.
+
+The app starts Ollama on demand if it is not already running.
+AI search sends transaction identifiers, dates, amounts, descriptions and categories to Ollama on
+this computer, not balances or account names. The model selects possible matches; the app calculates
+spending totals using its normal rules. **Matching is approximate:** check the transactions, because
+the model may miss relevant expenses or include unrelated ones. The first search can take time while
+the model loads, and larger ledgers require multiple model calls. AI search currently refuses ledgers
+with more than 1,000 transactions rather than returning an incomplete total. If Ollama is unavailable,
+switch back to regular search.
+
 ### CommBank CSV shape
 
 Four columns per row: date, amount, description, balance (quoted fields supported). Sample fixtures live under `src/test/resources/csv/`. Real bank exports under `samples/` and root `*.csv` are gitignored.
@@ -93,7 +152,7 @@ Four columns per row: date, amount, description, balance (quoted fields supporte
 | `/trends` | Month-by-month spend, income, and net |
 | `/category-trends` | Spend by category over time (stacked bars or lines) |
 | `/expenses` | Spending & income by category (expand + reassign) |
-| `/search` | Search expenses by description or category name (total + merchants) |
+| `/search` | Search expenses by description/category, or opt in to local AI-assisted search |
 | `/dashboard` | Pie charts for spend and income |
 | `/categories` | Manage categories; classification rules are behind **Show classification rules** |
 
@@ -117,7 +176,7 @@ Base path: `/api`
 | Categories | `GET/POST /categories`, `DELETE /categories/{id}` |
 | Rules | `GET/POST /rules`, `DELETE /rules/{id}` |
 | Dashboard | `GET /dashboard/expenses`, `GET /dashboard/monthly`, `GET /dashboard/category-trends`, category transaction lists, `POST /dashboard/expenses/reanalyse` |
-| Search | `GET /search/expenses?q=…&expand=…`, `GET /search/expenses/expand?q=…` |
+| Search | `GET /search/expenses?q=…&expand=…`, `GET /search/expenses/expand?q=…`, `POST /search/ai/start`, `POST /search/expenses/ai` |
 
 There is **no authentication**. Treat this as a local-only app; do not expose the port on a shared network without adding auth and binding to localhost.
 

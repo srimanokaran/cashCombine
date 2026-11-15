@@ -9,6 +9,13 @@ spring:
       ddl-auto: update
 
 search:
+  ai:
+    # Local only by default. Point at another host only when it is your own machine
+    # (e.g. http://ollama:11434 under Docker Compose).
+    base-url: "http://127.0.0.1:11434"
+    model: "llama3"
+    # Start `ollama serve` on demand. Set false when Ollama runs separately (Compose, system service).
+    start-ollama: true
   expander:
     # Optional local-model fallback for searches that find nothing. Off by default so the app
     # behaves identically with no model running.
